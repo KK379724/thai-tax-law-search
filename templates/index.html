@@ -502,6 +502,13 @@
   }
   .result-card:hover { border-color: var(--blue-500); box-shadow: var(--shadow); transform: translateY(-1px); }
   .result-card.active { border-color: var(--blue-600); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+  .result-card.is-repealed { border-color: #FECDD3; background: #FFF7F7; }
+  .result-card.is-repealed .card-title { color: #9F1239; }
+  .result-card.is-note { border-left: 4px solid #F59E0B; }
+  .chip-note { border-color: #FDE68A !important; background: #FFFBEB !important; color: #92400E !important; }
+  .note-warning { background: #FFFBEB; border: 1.5px solid #F59E0B; border-radius: 10px; padding: 12px 16px; margin-bottom: 14px; font-size: 13px; color: #92400E; line-height: 1.7; }
+  .detail-resizer { position: absolute; left: 0; top: 0; width: 6px; height: 100%; cursor: col-resize; z-index: 12; }
+  .detail-resizer:hover, .detail-resizer.dragging { background: rgba(37,99,235,.25); }
   .result-card.ai-card:hover { border-color: var(--ai-500); }
   .result-card.ai-card.active { border-color: var(--ai-600,#7C3AED); box-shadow: 0 0 0 3px rgba(124,58,237,.1); }
 
@@ -651,7 +658,7 @@
   .detail-overlay.open { display: block; }
   .detail-panel {
     position: fixed; top: 0; right: 0;
-    width: min(680px, 90vw); height: 100vh;
+    width: var(--detail-w, min(680px, 90vw)); max-width: 96vw; height: 100vh;
     background: var(--white);
     box-shadow: -8px 0 32px rgba(0,0,0,.15);
     overflow-y: auto;
@@ -1168,6 +1175,11 @@
         <span class="chip" data-doctype="director_general_notification"        onclick="setDocType(this)">ประกาศอธิบดีกรมสรรพากร</span>
         <span class="chip" data-doctype="ruling"                               onclick="setDocType(this)">ข้อหารือ</span>
         <span class="chip" data-doctype="court_judgment"                       onclick="setDocType(this)">คำพิพากษาฎีกา</span>
+        <span class="chip" data-doctype="act"                                 onclick="setDocType(this)">พระราชบัญญัติ</span>
+        <span class="chip" data-doctype="training"                            onclick="setDocType(this)">Q&amp;A กรมสรรพากร</span>
+        <span class="chip" data-doctype="tax_benefit_summary"                 onclick="setDocType(this)">สรุปสิทธิประโยชน์</span>
+        <span class="chip" data-doctype="department_explanation"              onclick="setDocType(this)">คำชี้แจงกรมสรรพากร</span>
+        <span class="chip chip-note" data-doctype="personal_note"             onclick="setDocType(this)">📝 บันทึกส่วนตัว</span>
       </div>
     </div>
 
@@ -1307,6 +1319,7 @@
 <!-- DETAIL OVERLAY -->
 <div class="detail-overlay" id="detailOverlay" onclick="closeDetail()"></div>
 <div class="detail-panel" id="detailPanel">
+  <div class="detail-resizer" id="detailResizer" title="ลากเพื่อปรับความกว้าง / ดับเบิลคลิกเพื่อขยายเต็ม"></div>
   <div class="detail-topbar" id="detailTopbar">
     <button class="detail-back" id="detailBackBtn" onclick="detailGoBack()">&#8592; กลับ</button>
     <div style="flex:1;min-width:0">
@@ -1316,6 +1329,7 @@
     <a id="detailTreeBtn" href="/tree" target="_blank"
        style="display:none;font-size:.72rem;color:#a78bfa;text-decoration:none;border:1px solid #3d2b6b;border-radius:5px;padding:3px 8px;white-space:nowrap;flex-shrink:0"
        title="ดูในแผนผังกฎหมายแม่-ลูก">🌳 แผนผัง</a>
+    <button id="detailDelBtn" onclick="deleteDetail()" style="display:none;font-size:.72rem;color:#fda4af;background:none;cursor:pointer;border:1px solid #881337;border-radius:5px;padding:3px 8px;white-space:nowrap;flex-shrink:0" title="ลบบันทึกส่วนตัวนี้ (ย้ายเข้าถังขยะ กู้คืนได้)">🗑 ลบ</button>
     <button id="detailEditBtn" onclick="editDetail()"
        style="font-size:.72rem;color:#6ee7b7;background:none;cursor:pointer;border:1px solid #1d5c46;border-radius:5px;padding:3px 8px;white-space:nowrap;flex-shrink:0"
        title="แก้ไขไฟล์ JSON ของเอกสารนี้ (เทียบกับต้นฉบับแล้วพิมพ์แก้เอง)">✏️ แก้ไข</button>
@@ -1866,7 +1880,7 @@
     }
 
     document.getElementById('resultsList').innerHTML = results.map((r, i) => `
-      <div class="result-card semantic-card" id="card-${r.id}" onclick="openDetail('${r.id}', this)">
+      <div class="result-card semantic-card${r.repealed ? ' is-repealed' : ''}" id="card-${r.id}" onclick="openDetail('${r.id}', this)">
         <div class="card-header">
           <span class="card-rank">${i + 1}</span>
           <span class="card-ref">${escHtml(r.ref_number)}</span>
@@ -1929,7 +1943,7 @@
     document.getElementById('resultsList').innerHTML = results.map((r, i) => {
       const srcBadge = [r.in_bm25 && 'BM25', r.in_vec && 'Vec'].filter(Boolean).join('+');
       return `
-      <div class="result-card hybrid-card" id="card-${r.id}" onclick="openDetail('${r.id}', this)">
+      <div class="result-card hybrid-card${r.repealed ? ' is-repealed' : ''}" id="card-${r.id}" onclick="openDetail('${r.id}', this)">
         <div class="card-header">
           <span class="card-rank">${i + 1}</span>
           <span class="card-ref">${escHtml(r.ref_number)}</span>
@@ -2513,7 +2527,7 @@ ${chatBlocksHtml}
           ${escHtml(r.relevance)}
         </div>` : '';
 
-      const cardClass = mode === 'ai' ? 'result-card ai-card' : 'result-card';
+      const cardClass = (mode === 'ai' ? 'result-card ai-card' : 'result-card') + (r.repealed ? ' is-repealed' : '') + (r.doc_type === 'personal_note' ? ' is-note' : '');
 
       return `
         <div class="${cardClass}" id="card-${r.id}" onclick="openDetail('${r.id}', this)">
@@ -2691,6 +2705,50 @@ ${chatBlocksHtml}
     openDetail(prevId, null, true); // _skipPush=true ไม่ push กลับเข้า stack
   }
 
+  async function deleteDetail() {
+    if (!detailCurrentId) return;
+    if (!confirm('ย้ายบันทึกส่วนตัวนี้เข้าถังขยะ?\n(ไฟล์ถูกเก็บใน .trash กู้คืนได้ — แต่จะหายจากผลค้นหาทันที)')) return;
+    try {
+      const r = await (await fetch('/api/delete/' + encodeURIComponent(detailCurrentId), { method: 'POST' })).json();
+      if (r.error) { alert('❌ ' + r.error); return; }
+      alert('🗑 ย้ายเข้าถังขยะแล้ว' + (r.warnings && r.warnings.length ? '\n⚠️ ' + r.warnings.join('\n') : ''));
+      closeDetail();
+      doSearch();
+    } catch (e) { alert('ลบไม่ได้: ' + e.message); }
+  }
+
+  // ── ลากยืด/หด detail panel ──────────────────────────────────────────────────
+  (function initResizer() {
+    const rz = document.getElementById('detailResizer');
+    const panel = document.getElementById('detailPanel');
+    if (!rz || !panel) return;
+    const saved = localStorage.getItem('detailW');
+    if (saved) document.documentElement.style.setProperty('--detail-w', saved);
+    let dragging = false;
+    rz.addEventListener('mousedown', e => {
+      dragging = true; rz.classList.add('dragging');
+      panel.style.transition = 'none'; e.preventDefault();
+    });
+    document.addEventListener('mousemove', e => {
+      if (!dragging) return;
+      const w = Math.min(Math.max(window.innerWidth - e.clientX, 420), window.innerWidth * 0.96);
+      document.documentElement.style.setProperty('--detail-w', w + 'px');
+    });
+    document.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false; rz.classList.remove('dragging');
+      panel.style.transition = '';
+      localStorage.setItem('detailW', getComputedStyle(document.documentElement).getPropertyValue('--detail-w').trim());
+    });
+    rz.addEventListener('dblclick', () => {
+      const cur = getComputedStyle(panel).width;
+      const wide = parseInt(cur) > window.innerWidth * 0.7;
+      const w = wide ? 'min(680px, 90vw)' : '96vw';
+      document.documentElement.style.setProperty('--detail-w', w);
+      localStorage.setItem('detailW', w);
+    });
+  })();
+
   // ── Edit mode: แก้ไฟล์ JSON จากใน UI ────────────────────────────────────────
   let _editRawMode = false;
   let _editDoc = null;
@@ -2698,11 +2756,11 @@ ${chatBlocksHtml}
   function _editFieldRow(key, label, val, forceShort) {
     const v = String(val == null ? '' : val);
     const long = !forceShort && (v.length > 100 || v.includes('\n'));
-    const inputStyle = 'width:100%;background:#12101f;color:#e5e1f5;border:1px solid #3d2b6b;border-radius:6px;padding:8px 10px;font:inherit;font-size:.85rem;line-height:1.7';
+    const inputStyle = 'width:100%;background:#fff;color:#0F172A;border:1px solid #CBD5E1;border-radius:6px;padding:8px 10px;font:inherit;font-size:.85rem;line-height:1.7';
     const el = long
       ? `<textarea data-editkey="${escHtml(key)}" rows="${Math.min(18, Math.max(4, Math.ceil(v.length / 90)))}" style="${inputStyle};resize:vertical">${escHtml(v)}</textarea>`
       : `<input data-editkey="${escHtml(key)}" value="${escHtml(v)}" style="${inputStyle}">`;
-    return `<label style="display:block;margin-bottom:10px;font-size:.75rem;color:#a78bfa;font-weight:600">${escHtml(label)}<div style="margin-top:3px">${el}</div></label>`;
+    return `<label style="display:block;margin-bottom:10px;font-size:.75rem;color:#334155;font-weight:600">${escHtml(label)}<div style="margin-top:3px">${el}</div></label>`;
   }
 
   async function editDetail() {
@@ -2724,8 +2782,11 @@ ${chatBlocksHtml}
     _editRawMode = false;
 
     const LIST_OK = ['keywords', 'tax_type', 'related_sections'];
-    const SKIP = new Set(['id', 'manually_edited', 'edited_at']);
-    let rows = '';
+    const SKIP = new Set(['id', 'manually_edited', 'edited_at', 'summary', 'plain_summary', 'keywords']);
+    // ช่องหลักขึ้นก่อนเสมอ (แม้ไฟล์เดิมยังไม่มี field) — full_text คุณพิมพ์เอง summary ให้ AI ช่วยได้
+    let rows = _editFieldRow('summary', 'summary (สรุปทางการ — กด 🤖 ให้ AI ร่างได้)', d.summary || '')
+             + _editFieldRow('plain_summary', 'plain_summary (สรุปภาษาชาวบ้าน)', d.plain_summary || '')
+             + _editFieldRow('keywords', 'keywords (คั่นด้วย ,)', (d.keywords || []).join(', '), true);
     for (const [k, v] of Object.entries(d)) {
       if (SKIP.has(k)) continue;
       if (typeof v === 'string') {
@@ -2741,24 +2802,25 @@ ${chatBlocksHtml}
     }
 
     const src = d.source_url
-      ? `<a href="${escHtml(d.source_url)}" target="_blank" style="color:#6ee7b7;text-decoration:none;border:1px solid #1d5c46;border-radius:6px;padding:5px 12px;font-size:.8rem;white-space:nowrap">🔗 เปิดต้นฉบับเทียบ</a>`
-      : `<span style="color:#8b849e;font-size:.78rem">ไฟล์นี้ไม่มี source_url</span>`;
+      ? `<a href="${escHtml(d.source_url)}" target="_blank" style="color:#047857;text-decoration:none;border:1.5px solid #A7F3D0;background:#ECFDF5;border-radius:6px;padding:5px 12px;font-size:.8rem;white-space:nowrap">🔗 เปิดต้นฉบับเทียบ</a>`
+      : `<span style="color:#64748B;font-size:.78rem">ไฟล์นี้ไม่มี source_url</span>`;
 
     document.getElementById('detailBody').innerHTML = `
-      <div style="background:#241c3d;border:1px solid #3d2b6b;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:.78rem;color:#c4b5fd;line-height:1.6">
-        💡 พิมพ์แก้ได้ทุกช่อง — กดบันทึกแล้วไฟล์เดิมถูกสำรองที่ <code style="color:#6ee7b7">.edit_backups/</code> เสมอ
+      <div style="background:#F8FAFC;border:1px solid #CBD5E1;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:.78rem;color:#475569;line-height:1.6">
+        💡 พิมพ์แก้ได้ทุกช่อง — กดบันทึกแล้วไฟล์เดิมถูกสำรองที่ <code style="color:#047857">.edit_backups/</code> เสมอ
         และผลค้นหา (BM25 + semantic) อัปเดตทันที &nbsp;${src}
       </div>
-      <div style="font-size:.72rem;color:#8b849e;margin-bottom:12px;word-break:break-all">📄 ${escHtml(j.fpath)}</div>
+      <div style="font-size:.72rem;color:#64748B;margin-bottom:12px;word-break:break-all">📄 ${escHtml(j.fpath)}</div>
       <div id="editFormWrap">${rows}</div>
       <div id="editRawWrap" style="display:none">
-        <label style="display:block;font-size:.75rem;color:#a78bfa;font-weight:600;margin-bottom:4px">JSON ทั้งไฟล์ (ขั้นสูง — ห้ามเปลี่ยน id)</label>
-        <textarea id="editRawTA" rows="26" spellcheck="false" style="width:100%;background:#12101f;color:#e5e1f5;border:1px solid #3d2b6b;border-radius:6px;padding:10px;font-family:ui-monospace,Menlo,monospace;font-size:.75rem;resize:vertical">${escHtml(JSON.stringify(d, null, 2))}</textarea>
+        <label style="display:block;font-size:.75rem;color:#334155;font-weight:600;margin-bottom:4px">JSON ทั้งไฟล์ (ขั้นสูง — ห้ามเปลี่ยน id)</label>
+        <textarea id="editRawTA" rows="26" spellcheck="false" style="width:100%;background:#fff;color:#0F172A;border:1px solid #CBD5E1;border-radius:6px;padding:10px;font-family:ui-monospace,Menlo,monospace;font-size:.75rem;resize:vertical">${escHtml(JSON.stringify(d, null, 2))}</textarea>
       </div>
-      <div style="position:sticky;bottom:0;background:#1a1530;padding:12px 0;display:flex;gap:10px;align-items:center;border-top:1px solid #3d2b6b">
+      <div style="position:sticky;bottom:0;background:#fff;padding:12px 0;display:flex;gap:10px;align-items:center;border-top:1px solid #E2E8F0">
         <button onclick="saveDetailEdit()" id="editSaveBtn" style="background:#059669;color:#fff;border:none;border-radius:6px;padding:9px 22px;font-size:.85rem;font-weight:700;cursor:pointer">💾 บันทึก</button>
-        <button onclick="openDetail(detailCurrentId, null, true)" style="background:none;color:#c4b5fd;border:1px solid #3d2b6b;border-radius:6px;padding:8px 14px;font-size:.78rem;cursor:pointer">ยกเลิก</button>
-        <button onclick="toggleEditRaw()" id="editRawBtn" style="background:none;color:#c4b5fd;border:1px solid #3d2b6b;border-radius:6px;padding:8px 14px;font-size:.78rem;cursor:pointer">{ } แก้ JSON ดิบ</button>
+        <button onclick="openDetail(detailCurrentId, null, true)" style="background:#fff;color:#475569;border:1px solid #CBD5E1;border-radius:6px;padding:8px 14px;font-size:.78rem;cursor:pointer">ยกเลิก</button>
+        <button onclick="aiEnrich()" id="btnAiEnrich" style="background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE;border-radius:6px;padding:8px 14px;font-size:.78rem;cursor:pointer" title="อ่าน full_text ที่พิมพ์ไว้ แล้วเสนอ summary + สายกฎหมายให้ตรวจก่อนบันทึก">🤖 AI สรุป+สายกฎหมาย</button>
+        <button onclick="toggleEditRaw()" id="editRawBtn" style="background:#fff;color:#475569;border:1px solid #CBD5E1;border-radius:6px;padding:8px 14px;font-size:.78rem;cursor:pointer">{ } แก้ JSON ดิบ</button>
         <span id="editStatus" style="font-size:.75rem;color:#8b849e"></span>
       </div>`;
   }
@@ -2768,6 +2830,36 @@ ${chatBlocksHtml}
     document.getElementById('editFormWrap').style.display = _editRawMode ? 'none' : '';
     document.getElementById('editRawWrap').style.display = _editRawMode ? '' : 'none';
     document.getElementById('editRawBtn').style.color = _editRawMode ? '#6ee7b7' : '#c4b5fd';
+  }
+
+  async function aiEnrich() {
+    const status = document.getElementById('editStatus');
+    const ftEl = document.querySelector('[data-editkey="content.full_text"]');
+    const ft = ftEl ? ftEl.value : ((_editDoc.content || {}).full_text || _editDoc.full_text || '');
+    if (!ft || ft.length < 50) { status.textContent = '❌ ต้องมี full_text ก่อนถึงให้ AI สรุปได้'; return; }
+    status.textContent = '🤖 AI กำลังอ่านและสรุป (~30-60 วิ)...';
+    try {
+      const r = await (await fetch('/api/ai_enrich', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ full_text: ft, title: _editDoc.title || '' }),
+      })).json();
+      if (r.error) { status.textContent = '❌ ' + r.error; return; }
+      const f = r.fields || {};
+      const put = (key, val) => { const el = document.querySelector(`[data-editkey="${key}"]`); if (el && val) el.value = val; };
+      put('summary', f.summary);
+      put('plain_summary', f.plain_summary);
+      put('keywords', (f.keywords || []).join(', '));
+      if (Array.isArray(f.authorizing_law_chain) && f.authorizing_law_chain.length) {
+        _editDoc.authorizing_law_chain = f.authorizing_law_chain;
+        const rawTA = document.getElementById('editRawTA');
+        if (rawTA) {
+          const cur = JSON.parse(rawTA.value);
+          cur.authorizing_law_chain = f.authorizing_law_chain;
+          rawTA.value = JSON.stringify(cur, null, 2);
+        }
+      }
+      status.textContent = '✅ AI เติมให้แล้ว — ตรวจแก้ตามใจ แล้วกดบันทึก (สายกฎหมายใหม่ถูกใส่ในโหมด JSON ดิบด้วย)';
+    } catch (e) { status.textContent = '❌ ' + e.message; }
   }
 
   async function saveDetailEdit() {
@@ -2992,7 +3084,20 @@ ${chatBlocksHtml}
 
     const treeHtml = renderLawTree(tree);
 
+    // บันทึกส่วนตัว: คำเตือน + ปุ่มลบ (เฉพาะเครื่องเจ้าของ)
+    let noteWarn = '';
+    const delBtn = document.getElementById('detailDelBtn');
+    if (docType === 'personal_note') {
+      noteWarn = `<div class="note-warning"><strong>⚠️ บันทึกส่วนตัว — ไม่ใช่กฎหมาย</strong><br>
+        เคสที่เจ้าของคลังพบจากการให้บริการจริง เป็นประสบการณ์และความคิดเห็นส่วนตัวเท่านั้น
+        อาจไม่ถูกต้อง และไม่มีศักดิ์ทางกฎหมายใดๆ — ห้ามใช้อ้างอิงแทนตัวบทกฎหมาย</div>`;
+      fetch('/api/me').then(r => r.json()).then(me => {
+        delBtn.style.display = (me.edit_backend === 'local') ? 'inline-block' : 'none';
+      }).catch(() => {});
+    } else if (delBtn) delBtn.style.display = 'none';
+
     document.getElementById('detailBody').innerHTML = `
+      ${noteWarn}
       <h2 class="detail-title">${escHtml(d.title||'')}</h2>
       <div class="detail-meta">
         <div class="detail-meta-item"><label>เลขที่</label><span>${escHtml(d.ref_number||'—')}</span></div>

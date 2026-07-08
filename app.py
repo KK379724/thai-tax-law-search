@@ -130,8 +130,9 @@ _HIERARCHY_ORDER = """(CASE m.doc_type
 ELSE 0 END) ASC,
 fts.rank ASC"""
 
-# ลำดับศักดิ์กฎหมายนำก่อน → ปีที่ออก → เลขฉบับ → BM25 tiebreaker
+# ลำดับศักดิ์กฎหมายนำก่อน → ในศักดิ์เดียวกันใหม่→เก่า (ยกเว้นประมวลฯ เรียงตามมาตรา) → BM25
 # กฎหมายแม่ (1-3) → กฎหมายลูก (4-5) → คำวินิจฉัย/ฎีกา (6-7) → ข้อหารือ (8)
+# (ตกลงกับ user 2026-07-09: "ศักดิ์ก่อน + ใหม่→เก่า ยกเว้นประมวลรัษฎากรตามมาตรา")
 _RELEVANCE_ORDER = """(CASE m.doc_type
     WHEN 'law_section'                   THEN 1
     WHEN 'royal_decree'                  THEN 2
@@ -147,9 +148,25 @@ _RELEVANCE_ORDER = """(CASE m.doc_type
     WHEN 'court_judgment'                THEN 7
     WHEN 'ruling'                        THEN 8
     ELSE 9 END) ASC,
-m.year ASC,
+(CASE WHEN m.doc_type='law_section' AND m.id LIKE 'section-%'
+    THEN CAST(SUBSTR(m.id,9) AS INTEGER) ELSE 0 END) ASC,
+(CASE WHEN m.doc_type='law_section' THEN
+    CASE
+        WHEN m.id LIKE '%-ทวิ'   THEN 2
+        WHEN m.id LIKE '%-ตรี'   THEN 3
+        WHEN m.id LIKE '%-จัตวา' THEN 4
+        WHEN m.id LIKE '%-เบญจ'  THEN 5
+        WHEN m.id LIKE '%-ฉ'     THEN 6
+        WHEN m.id LIKE '%-สัตต'  THEN 7
+        WHEN m.id LIKE '%-อัฏฐ'  THEN 8
+        WHEN m.id LIKE '%-นว'    THEN 9
+        WHEN m.id LIKE '%-ทศ'    THEN 10
+        ELSE 1 END
+ELSE 0 END) ASC,
+(CASE WHEN m.doc_type='law_section' THEN 0 ELSE m.year END) DESC,
+(CASE WHEN m.doc_type='law_section' THEN '' ELSE COALESCE(m.date,'') END) DESC,
 (CASE
-    WHEN m.id LIKE 'section-%'            THEN CAST(SUBSTR(m.id,9)  AS INTEGER)
+    WHEN m.doc_type='law_section'        THEN 0
     WHEN m.id LIKE 'royal-decree-%'       THEN CAST(SUBSTR(m.id,14) AS INTEGER)
     WHEN m.id LIKE 'mr%'                  THEN CAST(SUBSTR(m.id,3)  AS INTEGER)
     WHEN m.id LIKE 'dgsb%'               THEN CAST(SUBSTR(m.id,5)  AS INTEGER)
@@ -161,7 +178,7 @@ m.year ASC,
     WHEN m.id LIKE 'rdord_%'             THEN CAST(SUBSTR(m.id,9)  AS INTEGER)
     WHEN m.id LIKE 'committee-ruling-%'  THEN CAST(SUBSTR(m.id,18) AS INTEGER)
     WHEN m.id LIKE 'mof_mfc%'            THEN CAST(SUBSTR(m.id,8)  AS INTEGER)
-    ELSE 99999 END) ASC,
+    ELSE 0 END) DESC,
 rank ASC"""
 
 def doc_type_label(doc_type: str) -> str:
@@ -920,6 +937,36 @@ def _update_law_index_row(d: dict):
     db.execute('DELETE FROM fts WHERE doc_id=?', (d['id'],))
     db.execute('INSERT INTO fts VALUES (?,?,?)',
                (d['id'], _bi.tokenize_thai(title), _bi.tokenize_thai(full_content)))
+
+    # ── refresh ความสัมพันธ์กฎหมายของ doc นี้ (แผนผัง/สายกฎหมาย/แก้ไข-ยกเลิก) ──
+    # user แก้เลขมาตรา/เลขฉบับใน full_text หรือ chain → ลิงก์ต้องอัปเดตตาม
+    db.execute('DELETE FROM law_links WHERE doc_id=?', (d['id'],))
+    seen_links = set()
+    for c in chain:
+        if not isinstance(c, dict):
+            continue
+        plaw = (c.get('law') or '').strip()
+        if not plaw or plaw in seen_links:
+            continue
+        seen_links.add(plaw)
+        secs = ','.join(str(s) for s in (c.get('sections') or []) if s and str(s) != 'null')
+        rel = (c.get('relationship') or '').strip()
+        db.execute('INSERT OR IGNORE INTO law_links VALUES (?,?,?,?)', (d['id'], plaw, secs, rel))
+
+    db.execute('DELETE FROM doc_relations WHERE doc_id=?', (d['id'],))
+    if doc_type not in ('ruling', 'court_judgment', 'supreme_court_judgment'):
+        ft_text = (content.get('full_text') or '') if isinstance(content, dict) else ''
+        if ft_text:
+            for pat, relname in ((_bi._AMENDED_BY_RE, 'amended_by'),
+                                 (_bi._REPEALS_RE, 'repeals'),
+                                 (_bi._AMENDS_RE, 'amends')):
+                for m in pat.finditer(ft_text):
+                    try:
+                        db.execute('INSERT INTO doc_relations VALUES (?,?,?)',
+                                   (d['id'], int(_bi._th2ar(m.group(1))), relname))
+                    except (ValueError, sqlite3.Error):
+                        pass
+
     db.commit()
     db.close()
 
@@ -1053,6 +1100,110 @@ def api_save(ruling_id):
         except Exception as e:
             warnings.append(f'push ขึ้น GitHub ไม่สำเร็จ: {e} — เว็บสาธารณะจะยังไม่เห็นการแก้นี้ (commit ค้างอยู่ในเครื่อง สั่ง git push ทีหลังได้)')
     return jsonify(result)
+
+
+@app.route('/api/delete/<path:ruling_id>', methods=['POST'])
+def api_delete(ruling_id):
+    """ลบบันทึกส่วนตัว (เฉพาะ type=personal_note, เฉพาะเครื่อง local) — ย้ายเข้าถังขยะ กู้คืนได้
+    (กติกา: ห้ามลบถาวรโดยไม่ผ่าน user — .trash เก็บไฟล์ไว้เสมอ)"""
+    if EDIT_BACKEND != 'local' or request.remote_addr not in ('127.0.0.1', '::1'):
+        return jsonify({'error': 'ลบได้เฉพาะเจ้าของคลังบนเครื่อง local เท่านั้น'}), 403
+    ruling_id = re.sub(r'[^a-zA-Z0-9฀-๿\-\._]', '', ruling_id)
+    fp = _JSON_LOOKUP.get(ruling_id) or os.path.join(JSON_DIR, f'{ruling_id}.json')
+    if not os.path.isfile(fp):
+        return jsonify({'error': 'ไม่พบไฟล์'}), 404
+    try:
+        with open(fp, encoding='utf-8') as f:
+            doc = json.load(f)
+    except Exception as e:
+        return jsonify({'error': f'อ่านไฟล์ไม่ได้: {e}'}), 500
+    if doc.get('type') != 'personal_note':
+        return jsonify({'error': 'ปุ่มลบใช้ได้เฉพาะบันทึกส่วนตัวเท่านั้น (เอกสารกฎหมายห้ามลบ)'}), 400
+
+    import shutil
+    trash_dir = os.path.join(DATA_ROOT, '.trash')
+    os.makedirs(trash_dir, exist_ok=True)
+    dest = os.path.join(trash_dir, f"{os.path.basename(fp)}.{time.strftime('%Y%m%d-%H%M%S')}")
+    shutil.move(fp, dest)
+    _JSON_LOOKUP.pop(ruling_id, None)
+
+    warnings = []
+    try:
+        db = get_db()
+        for table, col in (('meta', 'id'), ('fts', 'doc_id'), ('law_links', 'doc_id'), ('doc_relations', 'doc_id')):
+            db.execute(f'DELETE FROM {table} WHERE {col}=?', (ruling_id,))
+        db.commit()
+        db.close()
+    except Exception as e:
+        warnings.append(f'ลบออกจากดัชนีไม่สำเร็จ: {e}')
+    try:
+        import law_search as _ls
+        from qdrant_client import QdrantClient
+        client = QdrantClient(path=QDRANT_PATH)
+        client.delete(QDRANT_COLLECTION, points_selector=[_ls._point_id(ruling_id)])
+        _VEC_CACHE['V_unit'] = None
+        _VEC_CACHE['payloads'] = None
+    except Exception as e:
+        warnings.append(f'ลบออกจากดัชนีความหมายไม่สำเร็จ: {e}')
+    # บันทึกการลบขึ้น GitHub ด้วย (เว็บจะหายตาม rebuild ตี 5)
+    try:
+        import subprocess
+        rel = os.path.relpath(fp, DATA_ROOT)
+        git = ['git', '-C', DATA_ROOT]
+        if subprocess.run(git + ['ls-files', '--error-unmatch', rel], capture_output=True).returncode == 0:
+            subprocess.run(git + ['rm', '--cached', '-q', rel], capture_output=True, timeout=30)
+            subprocess.run(git + ['-c', 'user.name=KK379724', '-c', 'user.email=kunanon63@gmail.com',
+                                  'commit', '-q', '-m', f'ลบบันทึกส่วนตัว {ruling_id} (ย้ายเข้าถังขยะจากแอป)'],
+                           capture_output=True, timeout=60)
+            subprocess.run(git + ['pull', '--rebase', '--autostash', '-q', 'origin', 'main'],
+                           capture_output=True, timeout=90)
+            subprocess.run(git + ['push', '-q', 'origin', 'main'], capture_output=True, timeout=90)
+    except Exception as e:
+        warnings.append(f'sync การลบขึ้น GitHub ไม่สำเร็จ: {e}')
+    return jsonify({'ok': True, 'trash': dest, 'warnings': warnings})
+
+
+@app.route('/api/ai_enrich', methods=['POST'])
+def api_ai_enrich():
+    """ให้ AI (free chain) สรุป + สกัดสายกฎหมายจาก full_text ที่ user เพิ่งพิมพ์แก้
+    — คืนค่าให้เติมในฟอร์มแก้ไข user ตรวจก่อนบันทึกเอง ไม่เขียนไฟล์ตรง"""
+    guard = _edit_guard()
+    if guard:
+        return guard
+    b = request.get_json(force=True, silent=True) or {}
+    full_text = (b.get('full_text') or '').strip()
+    title = (b.get('title') or '').strip()
+    if len(full_text) < 50:
+        return jsonify({'error': 'เนื้อหาเต็มสั้นเกินไป — พิมพ์ full_text ก่อนแล้วค่อยกดสรุป'}), 400
+    prompt = (
+        "คุณคือผู้เชี่ยวชาญกฎหมายภาษีไทย อ่านเอกสารต่อไปนี้แล้วตอบเป็น JSON เท่านั้น (ห้ามมีข้อความอื่น):\n"
+        '{"summary": "สรุปสาระสำคัญ 2-4 ประโยค ภาษาทางการ", '
+        '"plain_summary": "สรุปภาษาชาวบ้านที่คนทั่วไปเข้าใจ 1-3 ประโยค", '
+        '"keywords": ["คำสำคัญ 4-8 คำ"], '
+        '"authorizing_law_chain": [{"law": "ชื่อกฎหมายแม่ที่อ้างอำนาจ", "sections": ["มาตรา X"], "relationship": "อาศัยอำนาจตาม"}]}\n'
+        "กติกา: authorizing_law_chain เอาเฉพาะที่ระบุจริงในเนื้อหา (มักอยู่ท่อน 'อาศัยอำนาจตามความใน...') "
+        "ถ้าไม่มีให้ใส่ [] ห้ามเดา ห้ามใส่ null\n\n"
+        f"ชื่อเอกสาร: {title}\n\nเนื้อหา:\n{full_text[:12000]}"
+    )
+    try:
+        import subprocess
+        r = subprocess.run(
+            ['python3', os.path.expanduser('~/scripts/ai_router.py'), prompt, '--mode', 'thai', '--json'],
+            capture_output=True, text=True, timeout=150,
+        )
+        out = r.stdout.strip()
+        start, end = out.find('{'), out.rfind('}') + 1
+        if start < 0 or end <= start:
+            return jsonify({'error': f'AI ไม่ตอบเป็น JSON: {out[:200]}'}), 502
+        data = json.loads(out[start:end])
+        return jsonify({'ok': True, 'fields': {
+            'summary': data.get('summary', ''),
+            'plain_summary': data.get('plain_summary', ''),
+            'keywords': data.get('keywords', []),
+            'authorizing_law_chain': data.get('authorizing_law_chain', []),
+        }})
+    except Exception as e:
+        return jsonify({'error': f'เรียก AI ไม่สำเร็จ: {e}'}), 502
 
 
 # กลุ่ม doc_type ที่ควรอ่านพร้อมกัน — ใช้กรอง _resolve_num ให้แม่นขึ้น
@@ -2822,7 +2973,7 @@ DOC_TYPE_LABELS = {
     'regulation':     'ระเบียบ/แนวปฏิบัติ',
     'notification':   'ประกาศ/คำสั่ง/กฎกระทรวง',
     'court_judgment': 'คำพิพากษาศาล',
-    'training':       'เอกสารอบรม',
+    'training':       'Q&A กรมสรรพากร',
     'social_media':   'สื่อออนไลน์',
     'personal_note':  'บันทึกส่วนตัว',
     'royal_decree':   'พระราชกฤษฎีกา',

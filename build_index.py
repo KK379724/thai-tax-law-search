@@ -64,7 +64,7 @@ DOC_TYPE_LABELS = {
     'ministry_notification':           'ประกาศกระทรวงการคลัง',
     'ministry_order':                  'คำสั่งกระทรวงการคลัง',
     'court_judgment':                  'คำพิพากษาศาล',
-    'training':                        'เอกสารอบรม',
+    'training':                        'Q&A กรมสรรพากร',
     'social_media':                    'สื่อออนไลน์',
     'personal_note':                   'บันทึกส่วนตัว',
     'royal_decree':                    'พระราชกฤษฎีกา',
