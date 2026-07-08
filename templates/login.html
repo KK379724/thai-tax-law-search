@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>เข้าสู่ระบบทีมแก้ไข — คลังกฎหมายภาษีสรรพากร</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', 'Noto Sans Thai', Arial, sans-serif;
+    background: #12101f;
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #e5e1f5;
+  }
+  .card {
+    background: #1a1530; border: 1px solid #3d2b6b; border-radius: 12px;
+    box-shadow: 0 4px 24px rgba(0,0,0,.4);
+    padding: 40px 36px 36px; width: 100%; max-width: 380px;
+  }
+  .logo { text-align: center; margin-bottom: 24px; }
+  .logo .icon {
+    width: 56px; height: 56px; background: #2d2352; border-radius: 14px;
+    display: inline-flex; align-items: center; justify-content: center; font-size: 26px;
+  }
+  h1 { font-size: 17px; text-align: center; margin-bottom: 4px; color: #c4b5fd; }
+  .sub { font-size: 12.5px; text-align: center; color: #8b849e; margin-bottom: 24px; line-height: 1.6; }
+  label { display: block; font-size: 12.5px; color: #a78bfa; font-weight: 600; margin: 14px 0 5px; }
+  input {
+    width: 100%; background: #12101f; color: #e5e1f5;
+    border: 1px solid #3d2b6b; border-radius: 8px; padding: 11px 12px; font: inherit; font-size: 14px;
+  }
+  input:focus { outline: none; border-color: #7c5cff; }
+  button {
+    width: 100%; margin-top: 22px; background: #7c5cff; color: #fff; border: none;
+    border-radius: 8px; padding: 12px; font: inherit; font-size: 14.5px; font-weight: 700; cursor: pointer;
+  }
+  button:hover { background: #6947e8; }
+  button:disabled { background: #4b4368; cursor: wait; }
+  .err { margin-top: 14px; font-size: 12.5px; color: #fca5a5; text-align: center; min-height: 18px; }
+  .back { margin-top: 18px; text-align: center; }
+  .back a { color: #8b849e; font-size: 12.5px; text-decoration: none; }
+  .back a:hover { color: #c4b5fd; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo"><span class="icon">⚖️</span></div>
+    <h1>เข้าสู่ระบบทีมแก้ไข</h1>
+    <div class="sub">สำหรับผู้ที่ได้รับสิทธิ์แก้ไขข้อมูลคลังกฎหมายเท่านั้น<br>การแก้ไขทุกครั้งถูกส่งให้เจ้าของคลังตรวจก่อนมีผลจริง</div>
+    <label for="username">ชื่อผู้ใช้ (id)</label>
+    <input id="username" autocomplete="username" autofocus>
+    <label for="password">รหัสผ่าน</label>
+    <input type="password" id="password" autocomplete="current-password">
+    <button id="btn" onclick="doLogin()">เข้าสู่ระบบ</button>
+    <div class="err" id="err"></div>
+    <div class="back"><a href="/">← กลับหน้าค้นหา</a></div>
+  </div>
+<script>
+async function doLogin() {
+  const btn = document.getElementById('btn');
+  const err = document.getElementById('err');
+  btn.disabled = true; err.textContent = '';
+  try {
+    const resp = await fetch('/api/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: document.getElementById('username').value,
+        password: document.getElementById('password').value,
+      }),
+    });
+    const r = await resp.json();
+    if (r.ok) { location.href = '/'; return; }
+    err.textContent = r.error || 'เข้าสู่ระบบไม่สำเร็จ';
+  } catch (e) {
+    err.textContent = 'เชื่อมต่อ server ไม่ได้: ' + e.message;
+  }
+  btn.disabled = false;
+}
+document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+</script>
+</body>
+</html>

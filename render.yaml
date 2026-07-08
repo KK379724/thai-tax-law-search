@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: thai-tax-law
+    runtime: python
+    plan: free
+    buildCommand: bash render_build.sh
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.6
+      - key: EDIT_BACKEND
+        value: github
+      - key: DISABLE_AI
+        value: "1"
+      - key: DISABLE_SEMANTIC
+        value: "1"
+      - key: LAW_DATA_ROOT
+        value: ./data
+      - key: GITHUB_DATA_REPO
+        value: KK379724/klang-kotmai
+      - key: SECRET_KEY
+        generateValue: true
+      # ใส่เองใน Render dashboard (ห้าม commit ลง repo):
+      - key: GITHUB_PR_TOKEN   # fine-grained token: repo klang-kotmai, สิทธิ์ Contents RW + Pull requests RW
+        sync: false
+      - key: EDITOR_USERS      # 'user=<hash>|user2=<hash>' — สร้าง hash ด้วย make_user.py
+        sync: false

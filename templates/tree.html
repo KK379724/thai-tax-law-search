@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>แผนผังกฎหมายภาษีสรรพากร</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Sarabun', 'Noto Sans Thai', sans-serif; background: #0f1117; color: #e2e8f0; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+/* ── header ── */
+header { background: #1a1d27; border-bottom: 1px solid #2d3148; padding: 10px 18px; display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+header h1 { font-size: 1.05rem; font-weight: 600; color: #a78bfa; }
+header a { color: #64748b; text-decoration: none; font-size: .85rem; }
+header a:hover { color: #94a3b8; }
+
+/* ── layout ── */
+.layout { display: flex; flex: 1; overflow: hidden; }
+
+/* ── left panel: มาตรา list ── */
+.sidebar { width: 240px; background: #13161f; border-right: 1px solid #2d3148; display: flex; flex-direction: column; flex-shrink: 0; }
+.sidebar-header { padding: 10px 12px 6px; border-bottom: 1px solid #2d3148; }
+.sidebar-header input { width: 100%; background: #1e2130; border: 1px solid #3d4166; border-radius: 6px; padding: 6px 10px; color: #e2e8f0; font-size: .82rem; outline: none; }
+.sidebar-header input:focus { border-color: #7c3aed; }
+.section-count { font-size: .72rem; color: #64748b; margin-top: 4px; }
+.sec-list { overflow-y: auto; flex: 1; }
+.sec-item { padding: 6px 12px 6px 16px; cursor: pointer; border-left: 3px solid transparent; font-size: .82rem; line-height: 1.35; }
+.sec-item:hover { background: #1e2130; }
+.sec-item.active { background: #1e1b2e; border-left-color: #7c3aed; }
+.sec-item .sec-ref { color: #a78bfa; font-weight: 600; font-size: .75rem; }
+.sec-item .sec-title { color: #94a3b8; font-size: .75rem; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── grouped sidebar ── */
+.laksana-hdr { padding: 8px 10px 4px; font-size: .72rem; font-weight: 700; color: #a78bfa; letter-spacing: .04em; text-transform: uppercase; border-top: 1px solid #2d3148; background: #0f1117; cursor: pointer; user-select: none; }
+.laksana-hdr:first-child { border-top: none; }
+.laksana-hdr:hover { background: #161926; }
+.laksana-hdr.collapsed { color: #7c6bb0; }
+.chapter-hdr { padding: 5px 10px 5px 12px; font-size: .76rem; font-weight: 600; color: #e2e8f0; background: #161926; cursor: pointer; display: flex; align-items: center; gap: 5px; user-select: none; }
+.chapter-hdr:hover { background: #1e2130; }
+.chapter-hdr .ch-arrow { color: #64748b; font-size: .65rem; transition: transform .2s; flex-shrink: 0; }
+.chapter-hdr.collapsed .ch-arrow { transform: rotate(-90deg); }
+.chapter-hdr .ch-count { margin-left: auto; font-size: .68rem; color: #64748b; background: #1e2130; border-radius: 10px; padding: 0 5px; flex-shrink: 0; }
+.chapter-body.collapsed { display: none; }
+.part-hdr { padding: 4px 10px 4px 20px; font-size: .71rem; color: #64748b; background: #0f1117; font-style: italic; }
+
+/* ── center panel: tree ── */
+.center { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+.center-header { padding: 10px 16px; background: #13161f; border-bottom: 1px solid #2d3148; flex-shrink: 0; }
+.center-header h2 { font-size: .95rem; color: #e2e8f0; }
+.center-header p { font-size: .78rem; color: #64748b; margin-top: 3px; }
+#tree-svg { flex: 1; width: 100%; cursor: grab; }
+#tree-svg:active { cursor: grabbing; }
+.empty-state { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #475569; gap: 10px; }
+.empty-state .icon { font-size: 3rem; opacity: .4; }
+
+/* ── right panel: detail ── */
+.detail { width: 320px; background: #13161f; border-left: 1px solid #2d3148; display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
+.detail-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; color: #475569; gap: 8px; font-size: .85rem; }
+.detail-body { padding: 14px; overflow-y: auto; flex: 1; }
+.detail-tag { display: inline-block; background: #1e1b2e; color: #a78bfa; border: 1px solid #3d2b6b; border-radius: 4px; padding: 2px 8px; font-size: .72rem; margin-bottom: 8px; }
+.detail-title { font-size: .92rem; font-weight: 600; color: #e2e8f0; line-height: 1.4; margin-bottom: 8px; }
+.detail-summary { font-size: .8rem; color: #94a3b8; line-height: 1.6; margin-bottom: 12px; }
+.detail-text { font-size: .78rem; color: #64748b; line-height: 1.7; background: #0f1117; border-radius: 6px; padding: 10px; max-height: 200px; overflow-y: auto; white-space: pre-wrap; }
+.detail-link { display: inline-block; margin-top: 10px; font-size: .78rem; color: #7c3aed; text-decoration: none; }
+.detail-link:hover { text-decoration: underline; }
+
+/* ── D3 tree nodes ── */
+.node circle { stroke-width: 2; cursor: pointer; transition: r .15s; }
+.node circle:hover { r: 10; }
+.node text { font-size: 12px; fill: #e2e8f0; font-family: 'Sarabun', sans-serif; pointer-events: none; }
+.node text.label-sub { font-size: 10px; fill: #94a3b8; }
+.link { fill: none; stroke: #2d3148; stroke-width: 1.5; }
+.link.highlight { stroke: #7c3aed; stroke-width: 2; }
+
+/* color by type */
+.n-root circle { fill: #7c3aed; stroke: #a78bfa; }
+.n-royal_decree circle { fill: #1d4ed8; stroke: #60a5fa; }
+.n-ministerial_regulation circle { fill: #0f766e; stroke: #2dd4bf; }
+.n-ministry_notification circle, .n-ministry_order circle { fill: #b45309; stroke: #fbbf24; }
+.n-director_general_notification circle, .n-department_order circle, .n-department_notification circle { fill: #0369a1; stroke: #38bdf8; }
+.n-committee_ruling circle { fill: #7e22ce; stroke: #c084fc; }
+.n-group circle { fill: #1e293b; stroke: #3d4166; }
+.n-court_judgment circle { fill: #9f1239; stroke: #fb7185; }
+.n-ruling circle { fill: #374151; stroke: #6b7280; }
+
+/* badge count */
+.badge { display: inline-flex; align-items: center; justify-content: center; background: #2d3148; border-radius: 999px; padding: 1px 6px; font-size: .7rem; color: #94a3b8; margin-left: 4px; }
+
+/* tooltip */
+#tooltip { position: fixed; background: #1a1d27; border: 1px solid #3d4166; border-radius: 8px; padding: 8px 12px; font-size: .78rem; color: #e2e8f0; max-width: 280px; pointer-events: none; z-index: 999; box-shadow: 0 4px 20px rgba(0,0,0,.5); display: none; }
+
+/* scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2d3148; border-radius: 2px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🌳 แผนผังกฎหมายแม่-ลูก</h1>
+  <a href="/">← กลับหน้าค้นหา</a>
+</header>
+
+<div class="layout">
+  <!-- Left: section list -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <input id="sec-search" type="text" placeholder="ค้นหามาตรา...">
+      <div class="section-count" id="sec-count"></div>
+    </div>
+    <div class="sec-list" id="sec-list"></div>
+  </aside>
+
+  <!-- Center: D3 tree -->
+  <main class="center">
+    <div class="center-header" id="center-header" style="display:none">
+      <h2 id="center-title"></h2>
+      <p id="center-subtitle"></p>
+    </div>
+    <div class="empty-state" id="empty-state">
+      <div class="icon">⚖️</div>
+      <div>เลือกมาตราจากรายการทางซ้ายเพื่อดูแผนผังกฎหมาย</div>
+    </div>
+    <svg id="tree-svg" style="display:none"></svg>
+  </main>
+
+  <!-- Right: detail -->
+  <aside class="detail">
+    <div class="detail-empty" id="detail-empty">
+      <div style="font-size:1.5rem">📄</div>
+      คลิกโหนดในแผนผังเพื่อดูรายละเอียด
+    </div>
+    <div class="detail-body" id="detail-body" style="display:none"></div>
+  </aside>
+</div>
+
+<div id="tooltip"></div>
+
+<script>
+// ── Data ──────────────────────────────────────────────────────────────────────
+let allSections = [];
+let currentSection = null;
+let treeData = null;
+
+// ── Load sections list ─────────────────────────────────────────────────────────
+async function loadSections() {
+  const res = await fetch('/api/sections_list');
+  allSections = await res.json();
+  document.getElementById('sec-count').textContent = `${allSections.length} มาตรา`;
+  renderSecListGrouped(allSections);
+}
+
+/* แยก chapter เป็น { laksana, muat } */
+function parseChapter(ch) {
+  if (!ch) return { laksana: 'ไม่ระบุ', muat: '' };
+  // "ลักษณะ 2 หมวด 1 บทเบ็ดเสร็จทั่วไป"
+  const m = ch.match(/^(ลักษณะ\s+\S+)\s+(หมวด\s+.+)$/);
+  if (m) return { laksana: m[1].trim(), muat: m[2].trim() };
+  // "ลักษณะ 1 ข้อความเบื้องต้น" — ไม่มีหมวด, muat=''
+  const m2 = ch.match(/^(ลักษณะ\s+\S+)/);
+  if (m2) return { laksana: m2[1].trim(), muat: '' };
+  return { laksana: ch, muat: '' };
+}
+
+const LAKSANA_LABELS = {
+  'ลักษณะ 1': 'ลักษณะ 1 ข้อความเบื้องต้น',
+  'ลักษณะ 2': 'ลักษณะ 2 ภาษีอากรฝ่ายสรรพากร',
+  'ลักษณะ 3': 'ลักษณะ 3 ภาษีบำรุงท้องที่ (ยกเลิก)',
+};
+
+function renderSecListGrouped(secs) {
+  const list = document.getElementById('sec-list');
+
+  // 1. จัดกลุ่ม: laksana → chapters[]
+  const laksanaOrder = [];
+  const byLaksana = {};
+  for (const s of secs) {
+    const { laksana, muat } = parseChapter(s.chapter);
+    const chKey = s.chapter || 'ไม่ระบุ';
+    if (!byLaksana[laksana]) { byLaksana[laksana] = []; laksanaOrder.push(laksana); }
+    let ch = byLaksana[laksana].find(c => c.chKey === chKey);
+    if (!ch) { ch = { chKey, muat, secs: [] }; byLaksana[laksana].push(ch); }
+    ch.secs.push(s);
+  }
+
+  // 2. render
+  let html = '';
+  for (const laksana of laksanaOrder) {
+    const chapters = byLaksana[laksana];
+    const label = LAKSANA_LABELS[laksana] || laksana;
+    const hasMuat = chapters.some(c => c.muat);
+
+    // laksana-hdr: คลิกได้ถ้าไม่มีหมวด (ลักษณะ 1)
+    // ถ้ามีหมวด แต่ละหมวดมี toggle เอง laksana-hdr เป็นแค่ label
+    const lakId = 'ch-' + laksana.replace(/\s+/g,'_').replace(/[^\w_]/g,'') + '_all';
+    if (!hasMuat) {
+      html += `<div class="laksana-hdr" onclick="toggleChapter('${lakId}')">${label}</div>`;
+    } else {
+      html += `<div class="laksana-hdr">${label}</div>`;
+    }
+
+    for (const { chKey, muat, secs: csecs } of chapters) {
+      const chId = !hasMuat ? lakId
+        : 'ch-' + chKey.replace(/\s+/g,'_').replace(/[^\w_]/g,'');
+
+      if (muat) {
+        html += `<div class="chapter-hdr collapsed" onclick="toggleChapter('${chId}')">
+          <span class="ch-arrow">▼</span>
+          <span>${muat}</span>
+          <span class="ch-count">${csecs.length}</span>
+        </div>`;
+      }
+
+      html += `<div class="chapter-body collapsed" id="${chId}">`;
+      const partGroups = {}, partOrder = [];
+      for (const s of csecs) {
+        const pt = s.part || '';
+        if (!partGroups[pt]) { partGroups[pt] = []; partOrder.push(pt); }
+        partGroups[pt].push(s);
+      }
+      for (const pt of partOrder) {
+        if (pt) html += `<div class="part-hdr">${pt}</div>`;
+        for (const s of partGroups[pt]) {
+          html += `<div class="sec-item ${s.id === currentSection ? 'active' : ''}"
+            onclick="loadTree('${s.id}')" data-id="${s.id}">
+            <div class="sec-ref">${s.ref || s.id}</div>
+            <div class="sec-title">${s.title || ''}</div>
+          </div>`;
+        }
+      }
+      html += `</div>`;
+    }
+  }
+
+  list.innerHTML = html;
+}
+
+function toggleChapter(id) {
+  const body = document.getElementById(id);
+  if (!body) return;
+  body.classList.toggle('collapsed');
+  const hdr = body.previousElementSibling;
+  if (hdr && (hdr.classList.contains('chapter-hdr') || hdr.classList.contains('laksana-hdr'))) {
+    hdr.classList.toggle('collapsed');
+  }
+}
+
+function renderSecList(secs) {
+  // ใช้เมื่อ search — แสดงแบบ flat ไม่มี group header
+  const list = document.getElementById('sec-list');
+  list.innerHTML = secs.map(s => `
+    <div class="sec-item ${s.id === currentSection ? 'active' : ''}"
+         onclick="loadTree('${s.id}')"
+         data-id="${s.id}">
+      <div class="sec-ref">${s.ref || s.id}</div>
+      <div class="sec-title">${s.title || ''}</div>
+    </div>
+  `).join('');
+}
+
+document.getElementById('sec-search').addEventListener('input', e => {
+  const q = e.target.value.trim().toLowerCase();
+  if (!q) {
+    document.getElementById('sec-count').textContent = `${allSections.length} มาตรา`;
+    renderSecListGrouped(allSections);
+    return;
+  }
+  const filtered = allSections.filter(s =>
+    (s.ref || '').toLowerCase().includes(q) ||
+    (s.title || '').toLowerCase().includes(q) ||
+    (s.chapter || '').toLowerCase().includes(q)
+  );
+  document.getElementById('sec-count').textContent = `${filtered.length} มาตรา`;
+  renderSecList(filtered);
+});
+
+// ── Load Tree Data ─────────────────────────────────────────────────────────────
+async function loadTree(sectionId) {
+  currentSection = sectionId;
+  document.querySelectorAll('.sec-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.id === sectionId);
+  });
+  // auto-expand chapter-body ที่มี active item + scroll ไปหาสมาชิก
+  const activeEl = document.querySelector(`.sec-item[data-id="${sectionId}"]`);
+  if (activeEl) {
+    const body = activeEl.closest('.chapter-body');
+    if (body && body.classList.contains('collapsed')) {
+      toggleChapter(body.id);
+    }
+    setTimeout(() => activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 50);
+  }
+
+  const res = await fetch(`/api/section_tree/${sectionId}`);
+  if (!res.ok) return;
+  treeData = await res.json();
+
+  const sec = treeData.section;
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('center-header').style.display = 'block';
+  document.getElementById('center-title').textContent = `${sec.ref} — ${sec.title}`;
+
+  const childCount = treeData.children.reduce((a,c) => a+c.docs.length, 0);
+  document.getElementById('center-subtitle').textContent =
+    `กฎหมายลูก ${childCount} ฉบับ · ฎีกา ${treeData.dika_count} เรื่อง · ข้อหารือ ${treeData.ruling_count} เรื่อง`;
+
+  drawTree(treeData);
+  showDetailSection(sec);
+}
+
+// ── Draw D3 Tree ──────────────────────────────────────────────────────────────
+function drawTree(data) {
+  const svg = d3.select('#tree-svg');
+  svg.style('display', 'block');
+  svg.selectAll('*').remove();
+
+  const W = svg.node().clientWidth || 900;
+  const H = svg.node().clientHeight || 600;
+
+  const g = svg.append('g');
+
+  // Zoom + pan
+  svg.call(d3.zoom().scaleExtent([0.3, 3]).on('zoom', e => g.attr('transform', e.transform)));
+
+  // Build hierarchy data
+  const root_node = {
+    id: data.section.id,
+    name: data.section.ref,
+    label: data.section.title,
+    type: 'root',
+    doc_type: 'root',
+    children: [],
+  };
+
+  // กฎหมายลูก groups
+  data.children.forEach(grp => {
+    if (!grp.docs.length) return;
+    const group = {
+      id: 'grp-' + grp.doc_type,
+      name: grp.icon + ' ' + grp.label,
+      label: `${grp.docs.length} ฉบับ`,
+      type: 'group',
+      doc_type: 'group',
+      grp_type: grp.doc_type,
+      children: grp.docs.map(d => ({
+        id: d.id, name: d.ref, label: d.title,
+        type: 'child', doc_type: grp.doc_type,
+        year: d.year, repealed: d.repealed, children: [],
+      })),
+    };
+    root_node.children.push(group);
+  });
+
+  // ฎีกา group
+  if (data.dika.length) {
+    root_node.children.push({
+      id: 'grp-dika',
+      name: '⚖️ คำพิพากษาฎีกา',
+      label: `${data.dika_count} เรื่อง`,
+      type: 'group', doc_type: 'group', grp_type: 'court_judgment',
+      children: data.dika.map(d => ({
+        id: d.id, name: d.ref, label: d.title,
+        type: 'child', doc_type: 'court_judgment',
+        year: d.year, children: [],
+      })),
+    });
+  }
+
+  // ข้อหารือ group (collapsed by default — show count only)
+  if (data.ruling_count) {
+    root_node.children.push({
+      id: 'grp-ruling',
+      name: '💬 ข้อหารือ',
+      label: `${data.ruling_count} เรื่อง`,
+      type: 'group', doc_type: 'group', grp_type: 'ruling',
+      children: data.rulings.map(d => ({
+        id: d.id, name: d.ref, label: d.title,
+        type: 'child', doc_type: 'ruling',
+        year: d.year, children: [],
+      })),
+    });
+  }
+
+  const hierarchy = d3.hierarchy(root_node);
+  // collapse all groups initially
+  hierarchy.children?.forEach(d => { if (d.data.type === 'group') d._children = d.children, d.children = null; });
+
+  const treeLayout = d3.tree().nodeSize([36, 260]);
+  treeLayout(hierarchy);
+
+  function update(source) {
+    treeLayout(hierarchy);
+    const nodes = hierarchy.descendants();
+    const links = hierarchy.links();
+
+    // shift so root is centered
+    const minY = d3.min(nodes, n => n.y);
+    nodes.forEach(n => n.y -= minY - 60);
+
+    // Links
+    const link = g.selectAll('.link').data(links, d => d.target.data.id);
+    link.enter().append('path').attr('class', 'link')
+      .merge(link)
+      .transition().duration(250)
+      .attr('d', d3.linkHorizontal().x(n => n.y).y(n => n.x));
+    link.exit().remove();
+
+    // Nodes
+    const node = g.selectAll('.node').data(nodes, d => d.data.id);
+    const nodeEnter = node.enter().append('g')
+      .attr('class', d => `node n-${d.data.doc_type}`)
+      .attr('transform', d => `translate(${source.y0||source.y},${source.x0||source.x})`)
+      .on('click', (e, d) => {
+        if (d.data.type === 'group') {
+          if (d.children) { d._children = d.children; d.children = null; }
+          else { d.children = d._children; d._children = null; }
+          update(d);
+        } else if (d.data.type === 'child') {
+          showDetailNode(d.data);
+        } else if (d.data.type === 'root') {
+          showDetailSection(treeData.section);
+        }
+      })
+      .on('mouseover', (e, d) => {
+        const tt = document.getElementById('tooltip');
+        tt.style.display = 'block';
+        tt.innerHTML = `<b>${d.data.name}</b><br>${d.data.label || ''}`;
+        tt.style.left = (e.clientX + 14) + 'px';
+        tt.style.top  = (e.clientY - 10) + 'px';
+      })
+      .on('mousemove', e => {
+        const tt = document.getElementById('tooltip');
+        tt.style.left = (e.clientX + 14) + 'px';
+        tt.style.top  = (e.clientY - 10) + 'px';
+      })
+      .on('mouseout', () => { document.getElementById('tooltip').style.display = 'none'; });
+
+    nodeEnter.append('circle').attr('r', d => d.data.type === 'root' ? 12 : d.data.type === 'group' ? 9 : 6);
+
+    // label right
+    nodeEnter.append('text').attr('dy', '-0.35em').attr('x', d => (d.children || d._children ? -14 : 12))
+      .attr('text-anchor', d => (d.children || d._children ? 'end' : 'start'))
+      .text(d => d.data.name.length > 30 ? d.data.name.slice(0,30) + '…' : d.data.name);
+
+    // sub-label
+    nodeEnter.append('text').attr('class', 'label-sub').attr('dy', '1em').attr('x', d => (d.children || d._children ? -14 : 12))
+      .attr('text-anchor', d => (d.children || d._children ? 'end' : 'start'))
+      .text(d => {
+        if (d.data.type === 'group') return d.data.label;
+        if (d.data.year) return d.data.year + (d.data.repealed ? ' [ยกเลิก]' : '');
+        return '';
+      });
+
+    const nodeUpdate = node.merge(nodeEnter);
+    nodeUpdate.transition().duration(250)
+      .attr('transform', d => `translate(${d.y},${d.x})`);
+
+    node.exit().transition().duration(200)
+      .attr('transform', d => `translate(${source.y},${source.x})`).remove();
+
+    nodes.forEach(n => { n.x0 = n.x; n.y0 = n.y; });
+  }
+
+  // initial position
+  hierarchy.x0 = H / 2;
+  hierarchy.y0 = 0;
+  update(hierarchy);
+
+  // center on root
+  svg.call(d3.zoom().transform, d3.zoomIdentity.translate(80, H/2));
+}
+
+// ── Detail Panel ──────────────────────────────────────────────────────────────
+function showDetailSection(sec) {
+  document.getElementById('detail-empty').style.display = 'none';
+  const body = document.getElementById('detail-body');
+  body.style.display = 'block';
+  body.innerHTML = `
+    <div class="detail-tag">มาตราประมวลรัษฎากร</div>
+    <div class="detail-title">${sec.ref} — ${sec.title}</div>
+    <div class="detail-summary">${sec.summary || ''}</div>
+    ${sec.text ? `<div class="detail-text">${sec.text}</div>` : ''}
+    ${sec.source_url ? `<a class="detail-link" href="${sec.source_url}" target="_blank">ดูต้นฉบับ rd.go.th →</a>` : ''}
+    <a class="detail-link" style="margin-left:${sec.source_url ? '12px' : '0'}" href="/?section_ref=${encodeURIComponent(sec.ref)}" target="_blank">ค้นหาในแอปหลัก →</a>
+  `;
+}
+
+async function showDetailNode(d) {
+  document.getElementById('detail-empty').style.display = 'none';
+  const body = document.getElementById('detail-body');
+  body.style.display = 'block';
+  body.innerHTML = `<div style="color:#64748b;font-size:.8rem">กำลังโหลด...</div>`;
+
+  try {
+    const res = await fetch(`/api/detail/${d.id}`);
+    if (!res.ok) throw new Error('not found');
+    const doc = await res.json();
+
+    const TYPE_LABELS = {
+      royal_decree: 'พระราชกฤษฎีกา', ministerial_regulation: 'กฎกระทรวง',
+      director_general_notification: 'ประกาศอธิบดีกรมสรรพากร',
+      department_order: 'คำสั่งกรมสรรพากร', ministry_notification: 'ประกาศกระทรวงการคลัง',
+      court_judgment: 'คำพิพากษาฎีกา', ruling: 'ข้อหารือ',
+      committee_ruling: 'คำวินิจฉัยคณะกรรมการ',
+    };
+    const label = TYPE_LABELS[doc.type] || doc.type || '';
+    const summary = doc.plain_summary || doc.summary || '';
+    const repBadge = d.repealed ? '<span style="color:#f87171;font-size:.72rem"> [ยกเลิกแล้ว]</span>' : '';
+
+    body.innerHTML = `
+      <div class="detail-tag">${label}</div>
+      <div class="detail-title">${doc.ref_number || doc.id}${repBadge}</div>
+      <div class="detail-title" style="font-size:.8rem;font-weight:400;color:#94a3b8;margin-top:4px">${doc.title || ''}</div>
+      <div class="detail-summary" style="margin-top:10px">${summary}</div>
+      ${doc.why_issued ? `<div style="margin-top:8px"><b style="font-size:.75rem;color:#a78bfa">เหตุผล:</b><div class="detail-summary" style="margin-top:3px">${doc.why_issued}</div></div>` : ''}
+      ${doc.law_chain_summary ? `<div style="margin-top:8px"><b style="font-size:.75rem;color:#a78bfa">สายกฎหมาย:</b><div class="detail-summary" style="margin-top:3px">${doc.law_chain_summary}</div></div>` : ''}
+      <a class="detail-link" href="${doc.source_url || '#'}" target="_blank">ดูต้นฉบับ →</a>
+      <button class="detail-link" style="border:none;cursor:pointer;background:none;padding:0;margin-left:12px"
+        onclick="openInMainApp('${d.id}')">เปิดในแอปหลัก →</button>
+    `;
+  } catch {
+    body.innerHTML = `
+      <div class="detail-tag">${d.doc_type || ''}</div>
+      <div class="detail-title">${d.name}</div>
+      <div class="detail-summary">${d.label || ''}</div>
+      <a class="detail-link" href="/?q=${encodeURIComponent(d.name)}" target="_blank">ค้นหาในแอปหลัก →</a>
+    `;
+  }
+}
+
+// ── Main app integration ──────────────────────────────────────────────────────
+let _mainAppWindow = null;
+
+function openInMainApp(docId) {
+  const url = `/?doc=${encodeURIComponent(docId)}`;
+  if (_mainAppWindow && !_mainAppWindow.closed) {
+    // main app ยังเปิดอยู่ → สั่ง openDetail โดยตรง
+    try {
+      _mainAppWindow.focus();
+      _mainAppWindow.openDetail(docId, null);
+      return;
+    } catch(e) {}
+  }
+  _mainAppWindow = window.open(url, 'mainApp');
+}
+
+// รับ postMessage จาก main app เพื่อ sync section ที่กำลัง view
+window.addEventListener('message', e => {
+  if (e.origin !== location.origin) return;
+  if (e.data?.type === 'VIEW_SECTION' && e.data.sectionId) {
+    loadTree(e.data.sectionId);
+  }
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadSections();
+
+// auto-load section from URL hash
+const hash = location.hash.replace('#', '');
+if (hash) { setTimeout(() => loadTree(hash), 400); }
+</script>
+</body>
+</html>

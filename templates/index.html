@@ -1,0 +1,3635 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ค้นหาข้อหารือภาษีอากร</title>
+<style>
+  :root {
+    --blue-900: #0F2A5C;
+    --blue-800: #1A3A7A;
+    --blue-700: #1D4ED8;
+    --blue-600: #2563EB;
+    --blue-500: #3B82F6;
+    --blue-100: #DBEAFE;
+    --blue-50:  #EFF6FF;
+    --ai-900:   #4C1D95;
+    --ai-700:   #7C3AED;
+    --ai-500:   #8B5CF6;
+    --ai-100:   #EDE9FE;
+    --ai-50:    #F5F3FF;
+    --chat-700: #D97706;
+    --chat-600: #B45309;
+    --chat-100: #FEF3C7;
+    --chat-50:  #FFFBEB;
+    --gray-50:  #F8FAFC;
+    --gray-100: #F1F5F9;
+    --gray-200: #E2E8F0;
+    --gray-400: #94A3B8;
+    --gray-500: #64748B;
+    --gray-700: #334155;
+    --gray-900: #0F172A;
+    --white:    #FFFFFF;
+    --shadow:   0 4px 12px rgba(0,0,0,.08);
+    --radius:   8px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', 'Noto Sans Thai', Arial, sans-serif;
+    background: var(--gray-50);
+    color: var(--gray-900);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ── TOPBAR ── */
+  .topbar {
+    background: var(--blue-900);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 24px;
+    height: 52px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,.25);
+  }
+  .topbar-logo { font-size: 18px; font-weight: 700; }
+  .topbar-sub  { font-size: 11px; color: #94A3B8; margin-top: 1px; }
+  .topbar-stats { margin-left: auto; font-size: 12px; color: #94A3B8; display: flex; gap: 16px; }
+  .topbar-stats strong { color: #fff; }
+
+  /* ── LAYOUT ── */
+  .layout { display: grid; grid-template-columns: 280px 1fr; min-height: calc(100vh - 52px); }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    background: var(--white);
+    border-right: 1px solid var(--gray-200);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    overflow-y: auto;
+  }
+  .sidebar-section h3 {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--gray-400);
+    margin-bottom: 10px;
+  }
+
+  /* ── MODE TOGGLE ── */
+  .mode-toggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    background: var(--gray-100);
+    border-radius: var(--radius);
+    padding: 3px;
+    gap: 2px;
+  }
+  .mode-btn {
+    padding: 8px 6px;
+    border: none;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+    font-family: inherit;
+    background: transparent;
+    color: var(--gray-500);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+  .mode-btn.active-bm25 {
+    background: var(--blue-700);
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(29,78,216,.3);
+  }
+  .mode-btn.active-ai {
+    background: var(--ai-700);
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(124,58,237,.3);
+  }
+  .mode-btn.active-answer {
+    background: #0F766E;
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(15,118,110,.3);
+  }
+  .mode-btn.active-chat {
+    background: var(--chat-700);
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(217,119,6,.3);
+  }
+  .mode-btn.active-semantic {
+    background: #059669;
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(5,150,105,.3);
+  }
+  .mode-btn.active-hybrid {
+    background: #7C3AED;
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(124,58,237,.3);
+  }
+  .mode-btn.sem-full { grid-column: 1 / -1; }
+  .mode-btn:disabled { opacity: .4; cursor: not-allowed; }
+  .card-score-badge {
+    font-size: 10px; font-weight: 700; padding: 2px 7px;
+    border-radius: 8px; background: #059669; color: #fff;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .card-score-badge.hybrid { background: #7C3AED; }
+  .result-card.semantic-card:hover { border-color: #059669; }
+  .result-card.semantic-card.active { border-color: #047857; box-shadow: 0 0 0 3px rgba(5,150,105,.1); }
+  .result-card.hybrid-card:hover { border-color: #7C3AED; }
+  .result-card.hybrid-card.active { border-color: #6D28D9; box-shadow: 0 0 0 3px rgba(124,58,237,.1); }
+
+  /* ── ANSWER BOX ── */
+  .answer-box {
+    margin: 12px 16px 0;
+    border-radius: var(--radius);
+    border: 1.5px solid #99F6E4;
+    background: #F0FDFA;
+    display: none;
+    flex-direction: column;
+    gap: 0;
+    overflow: hidden;
+  }
+  .answer-box.visible { display: flex; }
+  .answer-header {
+    background: #0F766E;
+    color: #fff;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: space-between;
+  }
+  .answer-header-left { display: flex; align-items: center; gap: 8px; }
+  .answer-header h4 { font-size: 12px; font-weight: 700; letter-spacing: .5px; }
+  .confidence-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+  .confidence-badge.high   { background: #D1FAE5; color: #065F46; }
+  .confidence-badge.medium { background: #FEF3C7; color: #92400E; }
+  .confidence-badge.low    { background: #FEE2E2; color: #991B1B; }
+  .answer-model-label { font-size: 10px; color: #99F6E4; }
+  .answer-summary {
+    padding: 10px 16px 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: #0F766E;
+    border-bottom: 1px solid #CCFBF1;
+    padding-bottom: 10px;
+  }
+  .answer-text {
+    padding: 14px 16px;
+    font-size: 13px;
+    color: #134E4A;
+    line-height: 1.9;
+    white-space: pre-wrap;
+  }
+  .answer-note {
+    margin: 0 16px 12px;
+    padding: 8px 12px;
+    background: #FEF3C7;
+    border-left: 3px solid #F59E0B;
+    border-radius: 0 4px 4px 0;
+    font-size: 12px;
+    color: #92400E;
+  }
+  .answer-note-label { font-size: 10px; font-weight: 700; color: #B45309; margin-bottom: 2px; }
+
+  .cited-section {
+    margin: 0 16px 12px;
+    border-top: 1px solid #CCFBF1;
+    padding-top: 12px;
+  }
+  .cited-section h5 {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: #0F766E;
+    margin-bottom: 8px;
+  }
+  .cited-card {
+    background: #fff;
+    border: 1px solid #CCFBF1;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .cited-card:hover { border-color: #0F766E; box-shadow: 0 2px 8px rgba(15,118,110,.1); }
+  .cited-card-ref { font-size: 11px; font-weight: 700; color: #0F766E; font-family: monospace; }
+  .cited-card-title { font-size: 12px; color: var(--gray-700); margin-top: 3px; line-height: 1.4; }
+  .cited-card-snippet { font-size: 11px; color: var(--gray-400); margin-top: 4px; line-height: 1.5; }
+
+  .all-rulings-toggle {
+    margin: 0 16px 12px;
+    font-size: 12px;
+    color: #0F766E;
+    cursor: pointer;
+    text-decoration: underline;
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: inherit;
+  }
+  .all-rulings-list { margin: 0 16px 12px; display: none; }
+  .all-rulings-list.open { display: block; }
+  .all-ruling-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 0;
+    border-bottom: 1px solid #F1F5F9;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .all-ruling-row:hover { color: #0F766E; }
+  .all-ruling-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .all-ruling-dot.cited { background: #0F766E; }
+  .all-ruling-dot.notcited { background: var(--gray-200); }
+
+  /* ── SEARCH BOX ── */
+  .search-box { display: flex; flex-direction: column; gap: 8px; }
+  .search-input-wrap { position: relative; }
+  .search-input-wrap input {
+    width: 100%;
+    padding: 10px 12px 10px 36px;
+    border: 1.5px solid var(--gray-200);
+    border-radius: var(--radius);
+    font-size: 14px;
+    background: var(--gray-50);
+    color: var(--gray-900);
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+    font-family: inherit;
+  }
+  .search-input-wrap input:focus {
+    border-color: var(--blue-500);
+    box-shadow: 0 0 0 3px rgba(59,130,246,.12);
+    background: #fff;
+  }
+  .search-input-wrap.ai-mode input:focus {
+    border-color: var(--ai-500);
+    box-shadow: 0 0 0 3px rgba(139,92,246,.12);
+  }
+  .search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--gray-400); pointer-events: none; }
+
+  .search-btn {
+    background: var(--blue-700);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    padding: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+    font-family: inherit;
+  }
+  .search-btn:hover { background: var(--blue-800); }
+  .search-btn.ai-btn { background: var(--ai-700); }
+  .search-btn.ai-btn:hover { background: var(--ai-900); }
+  .search-btn:disabled { opacity: .6; cursor: not-allowed; }
+
+  /* ── OLLAMA ── */
+  .ollama-btn { background: #6D28D9; color: #fff; border: none; border-radius: var(--radius); padding: 10px 12px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background .15s; font-family: inherit; white-space: nowrap; }
+  .ollama-btn:hover { background: #5B21B6; }
+  .ollama-btn:disabled { opacity: .5; cursor: not-allowed; }
+  .ollama-status { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--gray-500); margin-top: 5px; }
+  .ollama-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .ollama-dot.on  { background: #10B981; }
+  .ollama-dot.off { background: #9CA3AF; }
+  .ollama-kw-wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 6px; padding: 6px 8px; background: #F5F3FF; border-radius: 6px; border: 1px solid #DDD6FE; }
+  .ollama-kw-chip { background: #EDE9FE; color: #5B21B6; border: 1px solid #C4B5FD; border-radius: 12px; padding: 2px 9px; font-size: 12px; }
+
+  /* ── AI KEY BOX ── */
+  .ai-key-box {
+    background: var(--ai-50);
+    border: 1.5px solid var(--ai-100);
+    border-radius: var(--radius);
+    padding: 10px;
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .ai-key-box.visible { display: flex; }
+  .ai-key-box.chat-theme { background: var(--chat-50); border-color: var(--chat-100); }
+  .ai-key-box label { font-size: 10px; font-weight: 700; color: var(--ai-700); text-transform: uppercase; letter-spacing: .8px; }
+  .ai-key-box.chat-theme label { color: var(--chat-700); }
+  .ai-key-box input, .ai-key-box select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1.5px solid var(--ai-100);
+    border-radius: 6px;
+    font-size: 12px;
+    background: #fff;
+    font-family: inherit;
+    outline: none;
+    color: var(--gray-900);
+  }
+  .ai-key-box.chat-theme input, .ai-key-box.chat-theme select { border-color: var(--chat-100); }
+  .ai-key-box input { font-family: monospace; }
+  .ai-key-box select:focus, .ai-key-box input:focus { border-color: var(--ai-500); }
+  .ai-key-box.chat-theme select:focus, .ai-key-box.chat-theme input:focus { border-color: var(--chat-700); }
+  .ai-key-hint { font-size: 10px; color: var(--ai-700); opacity: .8; line-height: 1.5; }
+  .ai-key-box.chat-theme .ai-key-hint { color: var(--chat-600); }
+  .ai-key-hint a { color: inherit; }
+  .key-label-row { display: flex; align-items: center; gap: 6px; margin-bottom: 0; }
+  .key-label-row label { margin-bottom: 0; }
+  .key-saved-badge { font-size: 10px; color: #16A34A; font-weight: 700; display: none; }
+  .key-saved-badge.visible { display: inline; }
+  .key-input-row { display: flex; }
+  .key-input-row input { border-radius: 6px 0 0 6px !important; flex: 1; min-width: 0; }
+  .key-eye-btn {
+    background: var(--white);
+    border: 1.5px solid var(--ai-100);
+    border-left: none;
+    border-radius: 0 6px 6px 0;
+    padding: 0 9px;
+    cursor: pointer;
+    color: var(--gray-400);
+    font-size: 13px;
+    transition: color .15s, background .15s;
+    display: flex; align-items: center;
+    flex-shrink: 0;
+  }
+  .key-eye-btn:hover { color: var(--gray-700); background: var(--gray-50); }
+  .ai-key-box.chat-theme .key-eye-btn { border-color: var(--chat-100); }
+  .key-clear-link {
+    font-size: 10px; color: var(--gray-400); cursor: pointer;
+    background: none; border: none; padding: 0; font-family: inherit;
+    text-decoration: underline; margin-left: auto;
+  }
+  .key-clear-link:hover { color: #EF4444; }
+
+  /* Sub-mode toggle (inside sidebar) */
+  .submode-toggle {
+    display: flex;
+    gap: 4px;
+  }
+  .submode-btn {
+    flex: 1;
+    padding: 5px 8px;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    background: var(--gray-50);
+    color: var(--gray-500);
+    font-family: inherit;
+    transition: all .15s;
+    text-align: center;
+  }
+  .submode-btn.active { background: var(--chat-700); border-color: var(--chat-700); color: #fff; }
+
+  /* ── FILTER CHIPS ── */
+  .filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1.5px solid var(--gray-200);
+    background: var(--gray-50);
+    color: var(--gray-500);
+    transition: all .15s;
+    user-select: none;
+  }
+  .chip:hover { border-color: var(--blue-500); color: var(--blue-700); }
+  .chip.active { background: var(--blue-700); border-color: var(--blue-700); color: #fff; }
+
+  /* ── YEAR RANGE ── */
+  .year-range { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .year-range input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--gray-900);
+    background: var(--gray-50);
+    outline: none;
+    font-family: inherit;
+  }
+  .year-range input:focus { border-color: var(--blue-500); background: #fff; }
+
+  /* ── STAT BARS ── */
+  .stat-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .stat-bar-label { font-size: 12px; color: var(--gray-700); width: 72px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stat-bar-track { flex: 1; height: 5px; background: var(--gray-100); border-radius: 3px; overflow: hidden; }
+  .stat-bar-fill { height: 100%; background: var(--blue-500); border-radius: 3px; }
+  .stat-bar-count { font-size: 11px; color: var(--gray-400); width: 32px; text-align: right; flex-shrink: 0; }
+
+  .clear-btn {
+    background: none;
+    border: 1px solid var(--gray-200);
+    color: var(--gray-500);
+    border-radius: 6px;
+    padding: 7px;
+    font-size: 12px;
+    cursor: pointer;
+    width: 100%;
+    transition: all .15s;
+    font-family: inherit;
+  }
+  .clear-btn:hover { border-color: var(--gray-400); color: var(--gray-700); }
+
+  /* ── MAIN ── */
+  .main { display: flex; flex-direction: column; overflow: hidden; }
+  .results-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    background: var(--white);
+    border-bottom: 1px solid var(--gray-200);
+    min-height: 44px;
+    flex-wrap: wrap;
+  }
+  .results-count { font-size: 13px; color: var(--gray-500); }
+  .results-count strong { color: var(--gray-900); }
+  .token-list { display: flex; gap: 4px; flex-wrap: wrap; }
+  .token-badge { background: var(--blue-50); color: var(--blue-700); border: 1px solid var(--blue-100); border-radius: 4px; padding: 2px 7px; font-size: 11px; font-weight: 600; }
+  .token-badge.ai { background: var(--ai-50); color: var(--ai-700); border-color: var(--ai-100); }
+  .mode-badge { margin-left: auto; font-size: 11px; color: var(--gray-400); }
+
+  /* ── AI SUMMARY BOX ── */
+  .ai-summary-box {
+    margin: 12px 16px 0;
+    background: var(--ai-50);
+    border: 1.5px solid var(--ai-100);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    display: none;
+  }
+  .ai-summary-box.visible { display: block; }
+  .ai-summary-box h4 { font-size: 11px; font-weight: 700; color: var(--ai-700); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 6px; }
+  .ai-summary-box p { font-size: 13px; color: var(--gray-700); line-height: 1.7; }
+
+  /* ── RESULTS LIST ── */
+  .results-list { flex: 1; overflow-y: auto; padding: 12px 16px; }
+  .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 300px; color: var(--gray-400); gap: 10px; }
+  .empty-state svg { opacity: .3; }
+
+  /* ── RESULT CARD ── */
+  .result-card {
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: border-color .15s, box-shadow .15s, transform .1s;
+  }
+  .result-card:hover { border-color: var(--blue-500); box-shadow: var(--shadow); transform: translateY(-1px); }
+  .result-card.active { border-color: var(--blue-600); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+  .result-card.ai-card:hover { border-color: var(--ai-500); }
+  .result-card.ai-card.active { border-color: var(--ai-600,#7C3AED); box-shadow: 0 0 0 3px rgba(124,58,237,.1); }
+
+  .card-header { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+  .card-rank { font-size: 11px; color: var(--gray-400); padding: 2px 6px; background: var(--gray-100); border-radius: 4px; font-weight: 600; flex-shrink: 0; margin-top: 2px; }
+  .card-ref { font-size: 12px; font-weight: 700; color: var(--blue-700); font-family: monospace; }
+  .card-year { font-size: 11px; color: var(--gray-400); margin-left: auto; flex-shrink: 0; }
+  .card-title { font-size: 13px; font-weight: 600; color: var(--gray-900); line-height: 1.5; margin-bottom: 6px; }
+  .card-snippet { font-size: 12px; color: var(--gray-500); line-height: 1.7; }
+  .card-snippet mark { background: #FEF08A; color: var(--gray-900); border-radius: 2px; padding: 0 1px; }
+  .card-plain-summary { font-size: 12px; color: var(--gray-700); line-height: 1.7; margin-top: 5px; padding: 6px 9px; background: #F0F9FF; border-left: 3px solid #38BDF8; border-radius: 0 4px 4px 0; }
+
+  .card-relevance {
+    margin-top: 8px;
+    padding: 8px 10px;
+    background: var(--ai-50);
+    border-left: 3px solid var(--ai-500);
+    border-radius: 0 4px 4px 0;
+    font-size: 12px;
+    color: var(--gray-700);
+    line-height: 1.6;
+  }
+  .card-relevance-label { font-size: 10px; font-weight: 700; color: var(--ai-700); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 3px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .relevance-score-badge { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 8px; background: var(--ai-700); color: #fff; }
+
+  /* ── OR FALLBACK WARNING ── */
+  .or-fallback-warn {
+    margin: 8px 16px 0;
+    padding: 8px 12px;
+    background: #FFFBEB;
+    border: 1px solid #FCD34D;
+    border-radius: var(--radius);
+    font-size: 12px;
+    color: #92400E;
+  }
+
+  /* ── COPY BUTTON ── */
+  .copy-btn {
+    background: none;
+    border: 1px solid var(--gray-200);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 10px;
+    padding: 2px 7px;
+    color: var(--gray-500);
+    transition: background .15s, color .15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .copy-btn:hover   { background: var(--gray-100); color: var(--gray-700); }
+  .copy-btn.copied  { background: #D1FAE5; border-color: #6EE7B7; color: #065F46; }
+
+  .card-footer { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
+  .tax-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 3px; background: var(--blue-50); color: var(--blue-700); border: 1px solid var(--blue-100); }
+  .tax-badge.VAT   { background: #FFF7ED; color: #C2410C; border-color: #FED7AA; }
+  .tax-badge.CIT   { background: #F0FDF4; color: #15803D; border-color: #BBF7D0; }
+  .tax-badge.WHT   { background: #FDF4FF; color: #9333EA; border-color: #E9D5FF; }
+  .tax-badge.Stamp { background: #FFF1F2; color: #BE123C; border-color: #FECDD3; }
+
+  /* ── STATUS BADGES ── */
+  .status-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 3px; display: inline-flex; align-items: center; gap: 3px; }
+  .status-badge.repealed  { background: #FFF1F2; color: #9F1239; border: 1px solid #FECDD3; }
+  .status-badge.amended   { background: #FFFBEB; color: #92400E; border: 1px solid #FCD34D; }
+
+  /* ── LAW CHAIN PANEL ── */
+  .law-chain-panel { margin-bottom: 16px; padding: 14px 16px; background: #F0FDF4; border: 1.5px solid #BBF7D0; border-radius: var(--radius); }
+  .law-chain-panel h4 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #15803D; margin-bottom: 10px; }
+  .law-chain-item { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; background: #fff; border: 1px solid #D1FAE5; border-radius: 6px; margin-bottom: 6px; }
+  .law-chain-item:last-child { margin-bottom: 0; }
+  .law-chain-law { font-size: 12px; font-weight: 600; color: #14532D; cursor: pointer; text-decoration: underline dotted; }
+  .law-chain-law:hover { color: #166534; text-decoration: underline; }
+  .law-chain-sections { display: flex; gap: 4px; flex-wrap: wrap; }
+  .law-chain-sec { font-size: 11px; padding: 1px 7px; background: #DCFCE7; color: #15803D; border-radius: 10px; font-weight: 600; cursor: pointer; border: none; transition: background .15s; }
+  .law-chain-sec:hover { background: #BBF7D0; }
+  .law-chain-rel { font-size: 11px; color: #6B7280; }
+
+  /* ── CHILD LAWS PANEL ── */
+  .child-laws-panel { margin-bottom: 16px; padding: 14px 16px; background: #EEF2FF; border: 1.5px solid #C7D2FE; border-radius: var(--radius); }
+  .child-laws-panel h4 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #4338CA; margin-bottom: 10px; }
+  .child-laws-group { margin-bottom: 10px; }
+  .child-laws-group-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: #6366F1; margin-bottom: 4px; }
+  .child-law-item { display: flex; align-items: flex-start; gap: 6px; padding: 5px 8px; background: #fff; border: 1px solid #E0E7FF; border-radius: 5px; margin-bottom: 3px; cursor: pointer; transition: background .12s; }
+  .child-law-item:hover { background: #F5F3FF; border-color: #C7D2FE; }
+  .child-law-ref { font-size: 11px; font-weight: 700; color: #4338CA; white-space: nowrap; }
+  .child-law-title { font-size: 11px; color: #374151; line-height: 1.4; }
+  .child-law-year { font-size: 10px; color: #9CA3AF; margin-left: auto; white-space: nowrap; padding-left: 6px; }
+  .child-law-repealed { text-decoration: line-through; opacity: .6; }
+  .child-laws-more { font-size: 11px; color: #6366F1; cursor: pointer; padding: 3px 0; text-decoration: underline dotted; }
+  .child-laws-more:hover { color: #4338CA; }
+  .shared-secs-badge { font-size: 9.5px; color: #6366F1; background: #EEF2FF; border: 1px solid #C7D2FE; border-radius: 3px; padding: 1px 4px; white-space: nowrap; flex-shrink: 0; }
+  /* ── RELATED RULINGS PANEL ── */
+  .related-rulings-panel { margin-bottom: 16px; padding: 14px 16px; background: #FFF7ED; border: 1.5px solid #FED7AA; border-radius: var(--radius); }
+  .related-rulings-panel h4 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #9A3412; margin-bottom: 10px; }
+  .ruling-link-item { display: flex; align-items: flex-start; gap: 6px; padding: 5px 8px; background: #fff; border: 1px solid #FED7AA; border-radius: 5px; margin-bottom: 3px; cursor: pointer; transition: background .12s; }
+  .ruling-link-item:hover { background: #FFF7ED; border-color: #FDBA74; }
+  .ruling-link-ref { font-size: 11px; font-weight: 700; color: #9A3412; white-space: nowrap; }
+  .ruling-link-title { font-size: 11px; color: #374151; line-height: 1.4; flex: 1; }
+  .ruling-link-year { font-size: 10px; color: #9CA3AF; margin-left: auto; white-space: nowrap; padding-left: 6px; }
+
+  /* ── LAW TREE PANEL ── */
+  .law-tree-panel { margin-bottom: 16px; padding: 14px 16px; background: #FAFAF5; border: 1.5px solid #D4D4AA; border-radius: var(--radius); }
+  .law-tree-panel h4 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #713F12; margin-bottom: 10px; }
+  .law-tree-node { margin-bottom: 10px; }
+  .law-tree-node:last-child { margin-bottom: 0; }
+  .law-tree-section { display: flex; align-items: center; gap: 7px; padding: 6px 10px; background: #FEFCE8; border: 1.5px solid #EAB308; border-radius: 7px; cursor: pointer; margin-bottom: 6px; transition: background .12s; }
+  .law-tree-section:hover { background: #FEF08A; }
+  .law-tree-section-badge { font-size: 9px; font-weight: 800; background: #CA8A04; color: #fff; padding: 2px 5px; border-radius: 3px; white-space: nowrap; flex-shrink: 0; }
+  .law-tree-section-title { font-size: 12px; font-weight: 600; color: #713F12; line-height: 1.4; flex: 1; }
+  .law-tree-children { padding-left: 16px; border-left: 2px solid #D4D4AA; margin-left: 10px; }
+  .law-tree-child { display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: #fff; border: 1px solid #E5E5E5; border-radius: 5px; margin-bottom: 3px; cursor: pointer; transition: background .12s; font-size: 11px; }
+  .law-tree-child:hover { background: #F5F5F0; border-color: #C0C0A0; }
+  .law-tree-child.is-current { background: #ECFDF5; border-color: #6EE7B7; border-width: 1.5px; }
+  .law-tree-type-badge { font-size: 9px; font-weight: 700; padding: 1px 4px; border-radius: 3px; white-space: nowrap; flex-shrink: 0; }
+  .law-tree-type-badge.rd { background: #DBEAFE; color: #1D4ED8; }
+  .law-tree-type-badge.mr { background: #FCE7F3; color: #9D174D; }
+  .law-tree-type-badge.mn { background: #F3E8FF; color: #6B21A8; }
+  .law-tree-type-badge.dg { background: #E0F2FE; color: #075985; }
+  .law-tree-type-badge.do { background: #F0FDF4; color: #15803D; }
+  .law-tree-type-badge.ot { background: #F1F5F9; color: #475569; }
+  .law-tree-child-ref { font-weight: 700; color: #374151; white-space: nowrap; }
+  .law-tree-child-title { color: #6B7280; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .law-tree-child-year { color: #9CA3AF; font-size: 10px; white-space: nowrap; margin-left: auto; }
+  .law-tree-current-badge { font-size: 9px; font-weight: 700; background: #059669; color: #fff; padding: 1px 5px; border-radius: 3px; white-space: nowrap; flex-shrink: 0; }
+  .law-tree-ruling-row { display: flex; align-items: center; gap: 5px; padding: 4px 8px; color: #92400E; font-size: 11px; cursor: pointer; border-radius: 5px; transition: background .12s; font-weight: 600; }
+  .law-tree-ruling-row:hover { background: #FEF3C7; }
+
+  /* ── AMENDMENT ALERT ── */
+  .amend-alert { margin-bottom: 12px; padding: 10px 14px; background: #FFFBEB; border: 1.5px solid #FCD34D; border-radius: var(--radius); font-size: 12px; color: #92400E; }
+  .amend-alert strong { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #B45309; margin-bottom: 6px; }
+  .amend-alert a { color: #B45309; font-weight: 600; cursor: pointer; text-decoration: underline; }
+  .repeal-alert { margin-bottom: 12px; padding: 10px 14px; background: #FFF1F2; border: 1.5px solid #FECDD3; border-radius: var(--radius); font-size: 12px; color: #9F1239; }
+  .repeal-alert strong { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #BE123C; margin-bottom: 6px; }
+  .amend-list-item { margin-bottom: 3px; }
+
+  /* ── REPEALED OVERLAY ── */
+  .detail-panel.is-repealed .detail-topbar { background: #9F1239; }
+
+  /* ── PAGINATION ── */
+  .pagination { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 12px; border-top: 1px solid var(--gray-200); background: var(--white); }
+  .page-btn { padding: 5px 10px; border: 1px solid var(--gray-200); border-radius: 5px; background: var(--white); color: var(--gray-700); font-size: 12px; cursor: pointer; transition: all .15s; font-family: inherit; }
+  .page-btn:hover { border-color: var(--blue-500); color: var(--blue-700); }
+  .page-btn.active { background: var(--blue-700); border-color: var(--blue-700); color: #fff; }
+  .page-btn:disabled { opacity: .4; cursor: default; }
+
+  /* ── DETAIL PANEL ── */
+  .detail-overlay { display: none; position: fixed; inset: 0; background: rgba(15,26,74,.35); z-index: 200; backdrop-filter: blur(2px); }
+  .detail-overlay.open { display: block; }
+  .detail-panel {
+    position: fixed; top: 0; right: 0;
+    width: min(680px, 90vw); height: 100vh;
+    background: var(--white);
+    box-shadow: -8px 0 32px rgba(0,0,0,.15);
+    overflow-y: auto;
+    transform: translateX(100%);
+    transition: transform .25s cubic-bezier(.4,0,.2,1);
+    z-index: 201;
+  }
+  .detail-panel.open { transform: translateX(0); }
+  .detail-topbar { position: sticky; top: 0; background: var(--blue-900); color: #fff; display: flex; align-items: center; gap: 10px; padding: 10px 16px; z-index: 10; }
+  .detail-back { background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.2); color: #fff; font-size: 12px; padding: 4px 10px; border-radius: 5px; cursor: pointer; white-space: nowrap; flex-shrink: 0; display: none; }
+  .detail-back:hover { background: rgba(255,255,255,.28); }
+  .detail-close { background: none; border: none; color: #94A3B8; font-size: 20px; cursor: pointer; line-height: 1; transition: color .15s; margin-left: auto; flex-shrink: 0; }
+  .detail-close:hover { color: #fff; }
+  .detail-ref { font-size: 13px; font-weight: 700; color: #93C5FD; font-family: monospace; }
+  .detail-date { font-size: 11px; color: #64748B; }
+  .detail-body { padding: 20px; }
+  .detail-title { font-size: 16px; font-weight: 700; color: var(--gray-900); line-height: 1.5; margin-bottom: 16px; }
+  .detail-meta { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; padding: 10px 14px; background: var(--gray-50); border-radius: var(--radius); border: 1px solid var(--gray-200); }
+  .detail-meta-item label { font-size: 10px; text-transform: uppercase; letter-spacing: .8px; color: var(--gray-400); font-weight: 700; display: block; margin-bottom: 2px; }
+  .detail-meta-item span { font-size: 12px; color: var(--gray-700); font-weight: 500; }
+  .detail-section { margin-bottom: 18px; }
+  .detail-section h4 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--blue-700); margin-bottom: 8px; padding-bottom: 6px; border-bottom: 2px solid var(--blue-100); }
+  .detail-section p { font-size: 13px; color: var(--gray-700); line-height: 1.85; white-space: pre-wrap; }
+  .detail-summary-box { margin: 0 0 16px; padding: 12px 16px; background: #EFF6FF; border-left: 3px solid #3B82F6; border-radius: 6px; }
+  .detail-summary-box strong { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #1D4ED8; margin-bottom: 6px; }
+  .detail-summary-box p { font-size: 13px; color: #1E3A5F; line-height: 1.8; white-space: pre-wrap; margin: 0; }
+  .detail-link { display: inline-flex; align-items: center; gap: 5px; margin-top: 16px; font-size: 12px; color: var(--blue-700); text-decoration: none; padding: 6px 12px; border: 1px solid var(--blue-200); border-radius: 6px; transition: all .15s; }
+  .detail-link:hover { background: var(--blue-50); border-color: var(--blue-400); }
+
+  /* ── AI LOADING ── */
+  .ai-loading {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 40px; gap: 14px; color: var(--gray-400);
+  }
+  .ai-loading-icon { font-size: 32px; animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: .4; transform: scale(.95); } 50% { opacity: 1; transform: scale(1.05); } }
+  .ai-loading p { font-size: 13px; }
+  .ai-loading small { font-size: 11px; color: var(--gray-400); }
+
+  /* ── SPINNER ── */
+  .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--gray-200); border-top-color: var(--blue-500); border-radius: 50%; animation: spin .6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-row { display: flex; align-items: center; gap: 10px; color: var(--gray-400); padding: 30px 20px; font-size: 13px; }
+
+  /* ── ERROR BOX ── */
+  .error-box { margin: 16px; padding: 12px 16px; background: #FFF1F2; border: 1px solid #FECDD3; border-radius: var(--radius); color: #9F1239; font-size: 13px; }
+
+  /* ── CHAT MODE ── */
+  .chat-section {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+  }
+  .chat-section.visible { display: flex; }
+
+  .chat-bubbles {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .chat-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    color: var(--gray-400);
+    gap: 8px;
+    padding: 60px 20px;
+  }
+  .chat-empty-icon { font-size: 44px; opacity: .35; }
+
+  .msg-row { display: flex; flex-direction: column; gap: 4px; }
+  .msg-row.user { align-items: flex-end; }
+  .msg-row.ai   { align-items: flex-start; }
+
+  .msg-label { font-size: 10px; color: var(--gray-400); padding: 0 4px; }
+
+  .msg-bubble {
+    max-width: 78%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 13px;
+    line-height: 1.75;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .msg-row.user .msg-bubble {
+    background: var(--blue-700);
+    color: #fff;
+    border-bottom-right-radius: 3px;
+  }
+  .msg-row.ai .msg-bubble {
+    background: var(--white);
+    color: var(--gray-900);
+    border: 1px solid var(--gray-200);
+    border-bottom-left-radius: 3px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  }
+
+  .msg-sources {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    max-width: 78%;
+    padding: 0 2px;
+  }
+  .msg-source-chip {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid var(--gray-200);
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    transition: all .15s;
+  }
+  .msg-source-chip.db  { background: var(--blue-50); color: var(--blue-700); border-color: var(--blue-100); }
+  .msg-source-chip.db:hover  { background: var(--blue-100); }
+  .msg-source-chip.web { background: #FFF7ED; color: #C2410C; border-color: #FED7AA; }
+  .msg-source-chip.web:hover { background: #FEF3C7; }
+  .msg-source-chip.ruling { background: #F0FDF4; color: #166534; border-color: #BBF7D0; }
+  .msg-source-chip.ruling:hover { background: #DCFCE7; }
+  .ruling-row { margin-top: 4px; }
+  .src-label { font-size: 10px; color: var(--gray-400); margin-right: 4px; }
+
+  .chat-thinking {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--gray-400);
+    font-size: 12px;
+    padding: 6px 14px;
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    border-bottom-left-radius: 3px;
+    width: fit-content;
+  }
+  .thinking-dots { display: flex; gap: 3px; }
+  .thinking-dots span {
+    display: inline-block;
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--gray-300);
+    animation: dot-pulse 1.4s ease-in-out infinite;
+  }
+  .thinking-dots span:nth-child(2) { animation-delay: .2s; }
+  .thinking-dots span:nth-child(3) { animation-delay: .4s; }
+  @keyframes dot-pulse {
+    0%, 80%, 100% { transform: scale(.6); opacity: .4; }
+    40%           { transform: scale(1);  opacity: 1;  }
+  }
+
+  .chat-input-area {
+    border-top: 1px solid var(--gray-200);
+    background: var(--white);
+    padding: 10px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .chat-input-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+  }
+  .chat-textarea {
+    flex: 1;
+    padding: 9px 12px;
+    border: 1.5px solid var(--gray-200);
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-family: inherit;
+    resize: none;
+    outline: none;
+    line-height: 1.5;
+    color: var(--gray-900);
+    background: var(--gray-50);
+    transition: border-color .15s;
+    min-height: 40px;
+    max-height: 100px;
+  }
+  .chat-textarea:focus { border-color: var(--chat-700); background: #fff; }
+  .chat-send-btn {
+    background: var(--chat-700);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    padding: 9px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background .15s;
+    white-space: nowrap;
+  }
+  .chat-send-btn:hover { background: var(--chat-600); }
+  .chat-send-btn:disabled { opacity: .5; cursor: not-allowed; }
+  .chat-clear-btn {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--gray-400);
+    background: none;
+    border: 1px solid var(--gray-200);
+    cursor: pointer;
+    font-family: inherit;
+    padding: 3px 10px;
+    border-radius: 4px;
+    transition: all .15s;
+  }
+  .chat-clear-btn:hover { color: #EF4444; border-color: #FECDD3; background: #FFF1F2; }
+  .chat-save-btn {
+    font-size: 11px;
+    color: var(--blue-700);
+    background: var(--blue-50);
+    border: 1px solid var(--blue-100);
+    cursor: pointer;
+    font-family: inherit;
+    padding: 3px 10px;
+    border-radius: 4px;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .chat-save-btn:hover { background: var(--blue-100); border-color: var(--blue-500); }
+  .chat-meta-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--gray-400);
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
+
+  /* ── TOPBAR SETTINGS BTN ── */
+  .topbar-settings-btn {
+    flex-shrink: 0;
+    background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25);
+    color: #fff; border-radius: 6px; padding: 6px 12px;
+    font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
+    display: flex; align-items: center; gap: 5px; white-space: nowrap;
+    transition: background .15s;
+  }
+  .topbar-settings-btn:hover { background: rgba(255,255,255,.22); }
+
+  /* ── SETTINGS PANEL ── */
+  .settings-overlay { display: none; position: fixed; inset: 0; background: rgba(15,26,74,.45); z-index: 300; backdrop-filter: blur(2px); }
+  .settings-overlay.open { display: block; }
+  .settings-panel {
+    position: fixed; top: 0; right: 0;
+    width: min(480px, 95vw); height: 100vh;
+    background: var(--white); box-shadow: -8px 0 32px rgba(0,0,0,.2);
+    overflow-y: auto; z-index: 301;
+    transform: translateX(100%); transition: transform .25s cubic-bezier(.4,0,.2,1);
+  }
+  .settings-panel.open { transform: translateX(0); }
+  .settings-topbar { position: sticky; top: 0; background: var(--blue-900); color: #fff; display: flex; align-items: center; gap: 10px; padding: 14px 20px; z-index: 10; }
+  .settings-topbar h2 { font-size: 14px; font-weight: 700; }
+  .settings-close { background: none; border: none; color: #94A3B8; font-size: 20px; cursor: pointer; margin-left: auto; line-height: 1; }
+  .settings-close:hover { color: #fff; }
+  .settings-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+  .provider-group { border: 1px solid var(--gray-200); border-radius: var(--radius); overflow: hidden; }
+  .provider-header { background: var(--gray-50); padding: 9px 14px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--gray-200); }
+  .provider-header h3 { font-size: 12px; font-weight: 700; color: var(--gray-700); }
+  .provider-saved-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gray-200); margin-left: auto; flex-shrink: 0; }
+  .provider-saved-dot.saved { background: #16A34A; }
+  .provider-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .provider-body > label { font-size: 10px; font-weight: 700; color: var(--gray-400); text-transform: uppercase; letter-spacing: .8px; }
+  .provider-key-row { display: flex; }
+  .provider-key-row input {
+    flex: 1; min-width: 0; padding: 8px 10px;
+    border: 1.5px solid var(--gray-200); border-radius: 6px 0 0 6px;
+    font-size: 12px; font-family: monospace; color: var(--gray-900);
+    background: var(--gray-50); outline: none;
+  }
+  .provider-key-row input:focus { border-color: var(--blue-500); background: #fff; }
+  .provider-eye-btn {
+    background: var(--white); border: 1.5px solid var(--gray-200); border-left: none;
+    border-radius: 0 6px 6px 0; padding: 0 10px; cursor: pointer;
+    color: var(--gray-400); font-size: 13px; display: flex; align-items: center; transition: color .15s;
+  }
+  .provider-eye-btn:hover { color: var(--gray-700); }
+  .provider-hint { font-size: 10px; color: var(--gray-400); line-height: 1.5; }
+  .provider-hint a { color: var(--blue-700); }
+  .settings-save-btn {
+    width: 100%; padding: 11px; font-size: 13px; font-weight: 700;
+    background: var(--blue-700); color: #fff; border: none;
+    border-radius: var(--radius); cursor: pointer; font-family: inherit; transition: background .15s;
+  }
+  .settings-save-btn:hover { background: var(--blue-800); }
+  .settings-saved-msg { text-align: center; font-size: 12px; color: #16A34A; font-weight: 700; padding: 4px; display: none; }
+
+  /* ── TOKEN ESTIMATE ── */
+  .token-estimate-row { font-size: 10px; color: var(--ai-700); opacity: .75; text-align: right; padding-top: 2px; display: none; }
+  .ai-key-box.chat-theme .token-estimate-row { color: var(--chat-600); }
+
+  /* ── EXPORT ── */
+  .export-wrap { position: relative; margin-left: auto; display: none; }
+  .export-wrap.visible { display: block; }
+  .export-btn-el {
+    background: var(--white); border: 1px solid var(--gray-200);
+    border-radius: 6px; padding: 5px 11px; font-size: 11px; font-weight: 600;
+    color: var(--gray-500); cursor: pointer; font-family: inherit;
+    display: flex; align-items: center; gap: 5px; transition: all .15s;
+  }
+  .export-btn-el:hover { border-color: var(--gray-400); color: var(--gray-700); }
+  .export-dropdown {
+    position: absolute; top: calc(100% + 4px); right: 0;
+    background: var(--white); border: 1px solid var(--gray-200);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    min-width: 160px; z-index: 50; display: none; flex-direction: column;
+  }
+  .export-dropdown.open { display: flex; }
+  .export-item {
+    padding: 9px 14px; font-size: 12px; color: var(--gray-700);
+    cursor: pointer; background: none; border: none;
+    font-family: inherit; text-align: left; transition: background .1s;
+  }
+  .export-item:hover { background: var(--gray-50); }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div>
+    <div class="topbar-logo">ข้อหารือภาษีอากร</div>
+    <div class="topbar-sub">กรมสรรพากร · ปี 2540–2569</div>
+  </div>
+  <div class="topbar-stats" id="topStats"><span>กำลังโหลด…</span></div>
+  <a onclick="window._treeTab=window.open('/tree','treeTab');return false;" href="/tree"
+     style="color:#a78bfa;font-size:.82rem;text-decoration:none;padding:5px 10px;border:1px solid #3d2b6b;border-radius:6px;white-space:nowrap;cursor:pointer;"
+     title="แผนผังกฎหมายแม่-ลูก">🌳 แผนผังกฎหมาย</a>
+  <button class="topbar-settings-btn" onclick="openSettings()" title="ตั้งค่า API Keys">⚙ API Keys</button>
+</div>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+
+    <!-- Mode Toggle -->
+    <div class="sidebar-section">
+      <h3>โหมดค้นหา</h3>
+      <div class="mode-toggle">
+        <button class="mode-btn active-bm25" id="btnBM25" onclick="setMode('bm25')" title="ค้นหาด้วยคำสำคัญ ฟรี ไม่ใช้ API">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          BM25
+        </button>
+        {% if 'ai' not in disabled_modes %}
+        <button class="mode-btn" id="btnAI" onclick="setMode('ai')" title="AI คัดเลือกข้อหารือที่เกี่ยวข้อง">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+          AI ค้นหา
+        </button>
+        {% endif %}
+        {% if 'answer' not in disabled_modes %}
+        <button class="mode-btn" id="btnAnswer" onclick="setMode('answer')" title="AI ตอบคำถามพร้อมอ้างอิง">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          AI ตอบ
+        </button>
+        {% endif %}
+        {% if 'chat' not in disabled_modes %}
+        <button class="mode-btn" id="btnChat" onclick="setMode('chat')" title="แชทถามตอบพร้อม Web Search">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          แชท
+        </button>
+        {% endif %}
+        {% if 'semantic' not in disabled_modes %}
+        <button class="mode-btn" id="btnSemantic" onclick="setMode('semantic')" title="ค้นหาด้วยความหมาย (Vector)">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+          Vector
+        </button>
+        {% endif %}
+        {% if 'hybrid' not in disabled_modes %}
+        <button class="mode-btn" id="btnHybrid" onclick="setMode('hybrid')" title="BM25 + Vector — ผลลัพธ์ดีที่สุด">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+          Hybrid
+        </button>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Search -->
+    <div class="sidebar-section" id="searchSection">
+      <h3>ค้นหา</h3>
+      <div class="search-box">
+        <div class="search-input-wrap" id="searchWrap">
+          <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+          <input type="text" id="searchInput"
+                 placeholder="พิมพ์คำถาม เช่น ค่าจ้างเหมา หัก ณ ที่จ่าย"
+                 autocomplete="off">
+        </div>
+
+        <!-- AI Key Box -->
+        <div class="ai-key-box" id="aiKeyBox">
+          <label>เลือกโมเดล AI</label>
+          <select id="modelSelect" onchange="onModelChange()">
+            <optgroup label="DeepSeek">
+              <option value="deepseek-v4-flash">DeepSeek V4 Flash — เร็วมาก</option>
+              <option value="deepseek-v4-pro">DeepSeek V4 Pro — แม่นยำสูง</option>
+            </optgroup>
+            <optgroup label="Google Gemini">
+              <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite — ฟรี เร็วมาก</option>
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash — สมดุล</option>
+              <option value="gemini-2.5-pro">Gemini 2.5 Pro — แม่นยำสูง</option>
+              <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview — ใหม่ล่าสุด</option>
+            </optgroup>
+            <optgroup label="Groq (ฟรี)">
+              <option value="meta-llama/llama-4-scout-17b-16e-instruct">Llama 4 Scout 17B — ใหม่ ฟรี</option>
+              <option value="llama-3.3-70b-versatile">Llama 3.3 70B — แรง ฟรี</option>
+              <option value="llama-3.1-8b-instant">Llama 3.1 8B — เร็วมาก ฟรี</option>
+            </optgroup>
+            <optgroup label="Mistral AI">
+              <option value="mistral-small-2506">Mistral Small — ถูก เร็ว</option>
+              <option value="mistral-large-2411">Mistral Large — แม่นยำ</option>
+              <option value="magistral-small-2506">Magistral Small — เหตุผลดี</option>
+              <option value="magistral-medium-2506">Magistral Medium — เหตุผลสูง</option>
+            </optgroup>
+            <optgroup label="Claude (Anthropic)">
+              <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 — ถูก เร็ว</option>
+              <option value="claude-sonnet-4-6">Claude Sonnet 4.6 — สมดุล</option>
+              <option value="claude-opus-4-7">Claude Opus 4.7 — ฉลาดสุด</option>
+            </optgroup>
+          </select>
+          <div class="key-label-row">
+            <label id="apiKeyLabel">API Key</label>
+            <span class="key-saved-badge" id="keySavedBadge">✓ บันทึกแล้ว</span>
+            <button class="key-clear-link" type="button" id="keyClearBtn" onclick="clearSavedKey()" title="ล้าง key ที่บันทึกไว้" style="display:none">ล้าง</button>
+          </div>
+          <div class="key-input-row">
+            <input type="password" id="apiKeyInput" placeholder="sk-xxxxxxxxxxxxxxxx" autocomplete="off">
+            <button class="key-eye-btn" id="keyEyeBtn" type="button" onclick="toggleKeyVisibility()" title="แสดง/ซ่อน API Key">👁</button>
+          </div>
+          <span class="ai-key-hint" id="apiKeyHint">
+            รับ API Key ที่ <a href="https://platform.deepseek.com" target="_blank">platform.deepseek.com</a>
+          </span>
+
+          <!-- Tavily key — แสดงเฉพาะโหมด Chat -->
+          <div id="tavilySection" style="display:none">
+            <div class="key-label-row">
+              <label>Tavily API Key <span style="font-weight:400;text-transform:none;opacity:.7">(ไม่บังคับ)</span></label>
+              <span class="key-saved-badge" id="tavSavedBadge">✓ บันทึกแล้ว</span>
+              <button class="key-clear-link" type="button" id="tavClearBtn" onclick="clearSavedTavily()" title="ล้าง Tavily key" style="display:none">ล้าง</button>
+            </div>
+            <div class="key-input-row">
+              <input type="password" id="tavilyKeyInput" placeholder="tvly-xxxxxxxxxxxxxxxx" autocomplete="off">
+              <button class="key-eye-btn" id="tavEyeBtn" type="button" onclick="toggleTavilyVisibility()" title="แสดง/ซ่อน Tavily Key">👁</button>
+            </div>
+            <span class="ai-key-hint">ไม่ใส่ = ใช้ DuckDuckGo แทนอัตโนมัติ &nbsp;|&nbsp; <a href="https://tavily.com" target="_blank">tavily.com</a></span>
+          </div>
+
+          <!-- Chat sub-mode — แสดงเฉพาะโหมด Chat -->
+          <div id="chatSubmodeSection" style="display:none">
+            <label>โหมดสนทนา</label>
+            <div class="submode-toggle">
+              <button class="submode-btn active" id="submodeSingle" onclick="setChatSubmode('single')">ถามตรง</button>
+              <button class="submode-btn" id="submodeMulti" onclick="setChatSubmode('multi')">สนทนา (5 คู่)</button>
+            </div>
+            <span class="ai-key-hint" id="submodeHint">ถามตรง = ไม่จำประวัติ ประหยัด token</span>
+          </div>
+          <div class="token-estimate-row" id="tokenEstimateRow">
+            <span id="tokenEstimateText"></span>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:6px;">
+          <button class="search-btn" id="searchBtn" onclick="doSearch(1)" style="flex:1">ค้นหา</button>
+          <button class="ollama-btn" id="ollamaBtn" onclick="doSmartSearch()" title="ใช้ Ollama สกัดคำสำคัญจากคำถาม แล้วค้นอัตโนมัติ" disabled>🧠 ค้นอัจฉริยะ</button>
+        </div>
+        <div class="ollama-status">
+          <span class="ollama-dot off" id="ollamaDot"></span>
+          <span id="ollamaStatusText">กำลังตรวจ Ollama...</span>
+        </div>
+        <div id="ollamaKwWrap" class="ollama-kw-wrap" style="display:none"></div>
+
+        <!-- Tokenize toggle — เฉพาะ BM25 mode -->
+        <div id="tokenizeSwitchWrap" style="margin-top:6px;">
+          <label style="font-size:11px;color:var(--gray-500);display:block;margin-bottom:4px;">การตัดคำ BM25</label>
+          <div class="submode-toggle">
+            <button class="submode-btn active" id="btnTokenizeOn"  onclick="setTokenize(true)" title="ตัดคำด้วย PyThaiNLP — เหมาะกับคำถามทั่วไป">✂ ตัดคำ (Thai)</button>
+            <button class="submode-btn"        id="btnTokenizeOff" onclick="setTokenize(false)" title="ค้นหา phrase ตรงๆ — เหมาะกับชื่อเฉพาะ เช่น กองทุนรวมเพื่อการเลี้ยงชีพ">🔤 ไม่ตัดคำ (Phrase)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter: Document Type -->
+    <div class="sidebar-section" id="docTypeSection">
+      <h3>ประเภทเอกสาร</h3>
+      <div class="filter-chips" id="docTypeChips">
+        <span class="chip active" data-doctype=""                              onclick="setDocType(this)">ทั้งหมด</span>
+        <span class="chip" data-doctype="law_section"                          onclick="setDocType(this)">ประมวลรัษฎากร</span>
+        <span class="chip" data-doctype="royal_decree"                         onclick="setDocType(this)">พระราชกฤษฎีกา</span>
+        <span class="chip" data-doctype="ministerial_regulation"               onclick="setDocType(this)">กฎกระทรวง</span>
+        <span class="chip" data-doctype="ministry_notification"                onclick="setDocType(this)">ประกาศกระทรวงการคลัง</span>
+        <span class="chip" data-doctype="ministry_order"                       onclick="setDocType(this)">คำสั่งกระทรวงการคลัง</span>
+        <span class="chip" data-doctype="ministry_regulation_order"            onclick="setDocType(this)">ระเบียบกระทรวงการคลัง</span>
+        <span class="chip" data-doctype="committee_ruling"                     onclick="setDocType(this)">คำวินิจฉัยกรรมการ</span>
+        <span class="chip" data-doctype="department_order"                     onclick="setDocType(this)">คำสั่งกรมสรรพากร</span>
+        <span class="chip" data-doctype="department_notification"              onclick="setDocType(this)">ประกาศกรมสรรพากร</span>
+        <span class="chip" data-doctype="director_general_notification"        onclick="setDocType(this)">ประกาศอธิบดีกรมสรรพากร</span>
+        <span class="chip" data-doctype="ruling"                               onclick="setDocType(this)">ข้อหารือ</span>
+        <span class="chip" data-doctype="court_judgment"                       onclick="setDocType(this)">คำพิพากษาฎีกา</span>
+      </div>
+    </div>
+
+    <!-- Filter: Tax Type -->
+    <div class="sidebar-section" id="filterSection">
+      <h3>ประเภทภาษี</h3>
+      <div class="filter-chips">
+        <span class="chip active" data-tax="" onclick="setTax(this)">ทั้งหมด</span>
+        <span class="chip" data-tax="PIT"   onclick="setTax(this)">PIT ภาษีเงินได้บุคคล</span>
+        <span class="chip" data-tax="CIT"   onclick="setTax(this)">CIT ภาษีเงินได้นิติ</span>
+        <span class="chip" data-tax="VAT"   onclick="setTax(this)">VAT ภาษีมูลค่าเพิ่ม</span>
+        <span class="chip" data-tax="SBT"   onclick="setTax(this)">SBT ภาษีธุรกิจเฉพาะ</span>
+        <span class="chip" data-tax="WHT"   onclick="setTax(this)">WHT หัก ณ ที่จ่าย</span>
+        <span class="chip" data-tax="Stamp" onclick="setTax(this)">Stamp อากรแสตมป์</span>
+      </div>
+    </div>
+
+    <!-- Filter: Year -->
+    <div class="sidebar-section" id="yearSection">
+      <h3>ช่วงปี พ.ศ.</h3>
+      <div class="year-range">
+        <input type="number" id="yearMin" placeholder="เช่น 2540" min="2540" max="2569">
+        <input type="number" id="yearMax" placeholder="เช่น 2569" min="2540" max="2569">
+      </div>
+    </div>
+
+    <!-- Tax Type Stats -->
+    <div class="sidebar-section">
+      <h3>สัดส่วนประเภทภาษี</h3>
+      <div id="taxBars"><div style="color:var(--gray-400);font-size:12px">กำลังโหลด…</div></div>
+    </div>
+
+    <button class="clear-btn" onclick="clearAll()">ล้างตัวกรองทั้งหมด</button>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="results-bar" id="resultsBar">
+      <span class="results-count" id="resultsCount">พิมพ์คำค้นหาแล้วกด Enter</span>
+      <div class="token-list" id="tokenList"></div>
+      <span class="mode-badge" id="modeBadge"></span>
+      <div class="export-wrap" id="exportWrap">
+        <button class="export-btn-el" onclick="toggleExportDropdown(event)">⬇ ส่งออก</button>
+        <div class="export-dropdown" id="exportDropdown">
+          <button class="export-item" onclick="exportHTML()">🗒 HTML / พิมพ์</button>
+          <button class="export-item" onclick="exportCSV()">📊 CSV / Excel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Summary (search mode) -->
+    <div class="ai-summary-box" id="aiSummaryBox">
+      <h4>🤖 สรุปจาก AI</h4>
+      <p id="aiSummaryText"></p>
+    </div>
+
+    <!-- OR Fallback warning (AI Search mode) -->
+    <div class="or-fallback-warn" id="orFallbackWarn" style="display:none">
+      ⚠ ค้นหาแบบ OR เนื่องจากไม่พบผลลัพธ์แบบ AND — รายการบางส่วนอาจไม่เกี่ยวข้องกับคำถามโดยตรง
+    </div>
+
+    <!-- AI Answer Box -->
+    <div class="answer-box" id="answerBox">
+      <div class="answer-header">
+        <div class="answer-header-left">
+          <span>💬</span>
+          <h4>คำตอบจาก AI</h4>
+          <span class="confidence-badge" id="confidenceBadge"></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="copy-btn" id="copyAnswerBtn" onclick="copyAnswer()" title="คัดลอกคำตอบ" style="display:none">
+            📋 คัดลอก
+          </button>
+          <span class="answer-model-label" id="answerModelLabel"></span>
+        </div>
+      </div>
+      <!-- OR Fallback warning (AI Answer mode) -->
+      <div class="or-fallback-warn" id="answerOrFallbackWarn" style="display:none">
+        ⚠ ค้นหาแบบ OR เนื่องจากไม่พบผลลัพธ์แบบ AND — ผลลัพธ์บางส่วนอาจไม่เกี่ยวข้องกับคำถามโดยตรง
+      </div>
+      <div class="answer-summary" id="answerSummary"></div>
+      <div class="answer-text" id="answerText"></div>
+      <div id="lawChainBox" style="display:none;margin:10px 0;padding:10px 14px;background:#F0FDF4;border-left:3px solid #16A34A;border-radius:6px;font-size:12px;color:#166534;line-height:1.6">
+        <strong style="display:block;margin-bottom:4px">⛓ สายกฎหมายที่เกี่ยวข้อง</strong>
+        <span id="lawChainText"></span>
+      </div>
+      <div class="answer-note" id="answerNote" style="display:none">
+        <div class="answer-note-label">⚠ ข้อควรระวัง</div>
+        <div id="answerNoteText"></div>
+      </div>
+      <div class="cited-section" id="citedSection">
+        <h5>📄 ข้อหารือที่อ้างอิง</h5>
+        <div id="citedList"></div>
+      </div>
+      <button class="all-rulings-toggle" onclick="toggleAllRulings()">▸ ดูข้อหารือทั้งหมดที่ค้นพบ</button>
+      <div class="all-rulings-list" id="allRulingsList"></div>
+    </div>
+
+    <!-- Chat Section -->
+    <div class="chat-section" id="chatSection">
+      <div class="chat-bubbles" id="chatBubbles">
+        <div class="chat-empty">
+          <div class="chat-empty-icon">💬</div>
+          <p style="font-size:14px;font-weight:600;color:var(--gray-500)">ถามคำถามด้านภาษีได้เลย</p>
+          <p style="font-size:12px">AI จะค้นจากฐานข้อหารือ + อินเทอร์เน็ต แล้วตอบให้พร้อมอ้างอิง</p>
+        </div>
+      </div>
+      <div class="chat-input-area">
+        <div class="chat-meta-bar">
+          <span id="chatWebBadge" style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--gray-100);color:var(--gray-500)">🔍 Web: DuckDuckGo</span>
+          <span style="font-size:10px;color:var(--gray-400)">+ ฐานข้อหารือ 2540–2569</span>
+          <button class="chat-save-btn" onclick="saveChatHistory()" title="บันทึกประวัติแชทเป็นไฟล์ HTML">💾 บันทึก</button>
+          <button class="chat-clear-btn" onclick="clearChat()">🗑 ล้างแชท</button>
+        </div>
+        <div class="chat-input-row">
+          <textarea class="chat-textarea" id="chatInput"
+            placeholder="พิมพ์คำถามด้านภาษี เช่น ค่าเสื่อมราคาของรถยนต์คิดอย่างไร..." rows="2"></textarea>
+          <button class="chat-send-btn" id="chatSendBtn" onclick="sendChat()">ส่ง ➤</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="results-list" id="resultsList">
+      <div class="empty-state">
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        <p>ค้นหาข้อหารือที่ต้องการ</p>
+        <p style="font-size:12px;color:var(--gray-400)">เลือกโหมดค้นหา แล้วพิมพ์คำถาม</p>
+      </div>
+    </div>
+
+    <div class="pagination" id="pagination" style="display:none"></div>
+  </main>
+</div>
+
+<!-- DETAIL OVERLAY -->
+<div class="detail-overlay" id="detailOverlay" onclick="closeDetail()"></div>
+<div class="detail-panel" id="detailPanel">
+  <div class="detail-topbar" id="detailTopbar">
+    <button class="detail-back" id="detailBackBtn" onclick="detailGoBack()">&#8592; กลับ</button>
+    <div style="flex:1;min-width:0">
+      <div class="detail-ref" id="detailRef">—</div>
+      <div class="detail-date" id="detailDate">—</div>
+    </div>
+    <a id="detailTreeBtn" href="/tree" target="_blank"
+       style="display:none;font-size:.72rem;color:#a78bfa;text-decoration:none;border:1px solid #3d2b6b;border-radius:5px;padding:3px 8px;white-space:nowrap;flex-shrink:0"
+       title="ดูในแผนผังกฎหมายแม่-ลูก">🌳 แผนผัง</a>
+    <button id="detailEditBtn" onclick="editDetail()"
+       style="font-size:.72rem;color:#6ee7b7;background:none;cursor:pointer;border:1px solid #1d5c46;border-radius:5px;padding:3px 8px;white-space:nowrap;flex-shrink:0"
+       title="แก้ไขไฟล์ JSON ของเอกสารนี้ (เทียบกับต้นฉบับแล้วพิมพ์แก้เอง)">✏️ แก้ไข</button>
+    <button class="detail-close" onclick="closeDetail()">✕</button>
+  </div>
+  <div class="detail-body" id="detailBody">
+    <div class="loading-row"><div class="spinner"></div> กำลังโหลด…</div>
+  </div>
+</div>
+
+<!-- SETTINGS OVERLAY -->
+<div class="settings-overlay" id="settingsOverlay" onclick="closeSettings()"></div>
+<div class="settings-panel" id="settingsPanel">
+  <div class="settings-topbar">
+    <span>⚙</span>
+    <h2>ตั้งค่า API Keys</h2>
+    <button class="settings-close" onclick="closeSettings()">✕</button>
+  </div>
+  <div class="settings-body">
+    <p style="font-size:12px;color:var(--gray-400);line-height:1.6;margin:0">
+      Keys บันทึกในเบราว์เซอร์นี้เท่านั้น (localStorage) — ไม่มีการส่งข้อมูลไปเซิร์ฟเวอร์
+    </p>
+
+    <div class="provider-group">
+      <div class="provider-header"><h3>DeepSeek</h3><div class="provider-saved-dot" id="sdot_deepseek"></div></div>
+      <div class="provider-body">
+        <label>API Key</label>
+        <div class="provider-key-row">
+          <input type="password" id="skey_deepseek" placeholder="sk-xxxxxxxxxxxxxxxx">
+          <button class="provider-eye-btn" id="seye_deepseek" onclick="toggleSettingsEye('deepseek')">👁</button>
+        </div>
+        <span class="provider-hint">รับ key ที่ <a href="https://platform.deepseek.com" target="_blank">platform.deepseek.com</a></span>
+      </div>
+    </div>
+
+    <div class="provider-group">
+      <div class="provider-header"><h3>Google Gemini</h3><div class="provider-saved-dot" id="sdot_google"></div></div>
+      <div class="provider-body">
+        <label>API Key</label>
+        <div class="provider-key-row">
+          <input type="password" id="skey_google" placeholder="AIzaxxxxxxxxxxxxxxxx">
+          <button class="provider-eye-btn" id="seye_google" onclick="toggleSettingsEye('google')">👁</button>
+        </div>
+        <span class="provider-hint">ฟรี — <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a></span>
+      </div>
+    </div>
+
+    <div class="provider-group">
+      <div class="provider-header"><h3>Groq</h3><div class="provider-saved-dot" id="sdot_groq"></div></div>
+      <div class="provider-body">
+        <label>API Key</label>
+        <div class="provider-key-row">
+          <input type="password" id="skey_groq" placeholder="gsk_xxxxxxxxxxxxxxxx">
+          <button class="provider-eye-btn" id="seye_groq" onclick="toggleSettingsEye('groq')">👁</button>
+        </div>
+        <span class="provider-hint">ฟรี — <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a></span>
+      </div>
+    </div>
+
+    <div class="provider-group">
+      <div class="provider-header"><h3>Mistral AI</h3><div class="provider-saved-dot" id="sdot_mistral"></div></div>
+      <div class="provider-body">
+        <label>API Key</label>
+        <div class="provider-key-row">
+          <input type="password" id="skey_mistral" placeholder="xxxxxxxxxxxxxxxxxxxxxxxx">
+          <button class="provider-eye-btn" id="seye_mistral" onclick="toggleSettingsEye('mistral')">👁</button>
+        </div>
+        <span class="provider-hint">รับ key ที่ <a href="https://console.mistral.ai/api-keys" target="_blank">console.mistral.ai</a></span>
+      </div>
+    </div>
+
+    <div class="provider-group">
+      <div class="provider-header"><h3>Anthropic Claude</h3><div class="provider-saved-dot" id="sdot_anthropic"></div></div>
+      <div class="provider-body">
+        <label>API Key</label>
+        <div class="provider-key-row">
+          <input type="password" id="skey_anthropic" placeholder="sk-ant-xxxxxxxxxxxxxxxx">
+          <button class="provider-eye-btn" id="seye_anthropic" onclick="toggleSettingsEye('anthropic')">👁</button>
+        </div>
+        <span class="provider-hint">รับ key ที่ <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a></span>
+      </div>
+    </div>
+
+    <div class="provider-group">
+      <div class="provider-header">
+        <h3>Tavily <span style="font-size:11px;font-weight:400;color:var(--gray-400)">(Web Search)</span></h3>
+        <div class="provider-saved-dot" id="sdot_tavily"></div>
+      </div>
+      <div class="provider-body">
+        <label>API Key (ไม่บังคับ — ไม่ใส่ใช้ DuckDuckGo)</label>
+        <div class="provider-key-row">
+          <input type="password" id="skey_tavily" placeholder="tvly-xxxxxxxxxxxxxxxx">
+          <button class="provider-eye-btn" id="seye_tavily" onclick="toggleSettingsEye('tavily')">👁</button>
+        </div>
+        <span class="provider-hint">รับ key ที่ <a href="https://tavily.com" target="_blank">tavily.com</a></span>
+      </div>
+    </div>
+
+    <button class="settings-save-btn" onclick="saveAllSettings()">💾 บันทึก API Keys ทั้งหมด</button>
+    <div class="settings-saved-msg" id="settingsSavedMsg">✓ บันทึกเรียบร้อยแล้ว</div>
+  </div>
+</div>
+
+<script>
+  // ── State ────────────────────────────────────────────────────
+  const DOC_TYPE_LABELS = {
+    'law_section':                    'ประมวลรัษฎากร',
+    'royal_decree':                   'พระราชกฤษฎีกา',
+    'ministerial_regulation':         'กฎกระทรวง',
+    'ministry_notification':          'ประกาศกระทรวงการคลัง',
+    'ministry_order':                 'คำสั่งกระทรวงการคลัง',
+    'ministry_regulation_order':      'ระเบียบกระทรวงการคลัง',
+    'committee_ruling':               'คำวินิจฉัยกรรมการ',
+    'department_order':               'คำสั่งกรมสรรพากร',
+    'department_notification':        'ประกาศกรมสรรพากร',
+    'director_general_notification':  'ประกาศอธิบดีกรมสรรพากร',
+    'department_explanation':         'คำชี้แจงกรมสรรพากร',
+    'ruling':                         'ข้อหารือ',
+    'court_judgment':                 'คำพิพากษาฎีกา',
+    'act':                            'พระราชบัญญัติ',
+    'regulation':                     'ระเบียบ',
+    'notification':                   'ประกาศ/คำสั่ง',
+    'personal_note':                  'บันทึก',
+  };
+
+  let currentMode       = 'bm25';
+  let currentPage       = 1;
+  let currentQuery      = '';
+  let currentTax        = '';
+  let currentDocType    = '';
+  let currentYearMin    = '';
+  let currentYearMax    = '';
+  let currentSectionRef = '';
+  let activeCard     = null;
+
+  // Chat state
+  let chatHistory = [];
+  let chatSubmode = 'single';
+
+  // BM25 tokenize mode (true = ตัดคำด้วย pythainlp, false = ไม่ตัดคำ / phrase)
+  let currentTokenize = true;
+
+  function setTokenize(val) {
+    currentTokenize = val;
+    document.getElementById('btnTokenizeOn').classList.toggle('active', val);
+    document.getElementById('btnTokenizeOff').classList.toggle('active', !val);
+    if (currentQuery) doSearch(1);
+  }
+
+  // Export state
+  let currentResultsData = null;
+
+  // ── Model Info ───────────────────────────────────────────────
+  const MODEL_INFO = {
+    // DeepSeek
+    'deepseek-v4-flash': { provider: 'deepseek',  label: 'DeepSeek API Key',  placeholder: 'sk-xxxxxxxxxxxxxxxx',      hint: 'รับ API Key ที่ <a href="https://platform.deepseek.com" target="_blank">platform.deepseek.com</a>' },
+    'deepseek-v4-pro':   { provider: 'deepseek',  label: 'DeepSeek API Key',  placeholder: 'sk-xxxxxxxxxxxxxxxx',      hint: 'รับ API Key ที่ <a href="https://platform.deepseek.com" target="_blank">platform.deepseek.com</a>' },
+    // Google
+    'gemini-3.1-flash-lite': { provider: 'google', label: 'Google API Key',   placeholder: 'AIzaxxxxxxxxxxxxxxxx',     hint: 'รับฟรีที่ <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>' },
+    'gemini-2.5-flash':      { provider: 'google', label: 'Google API Key',   placeholder: 'AIzaxxxxxxxxxxxxxxxx',     hint: 'รับฟรีที่ <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>' },
+    'gemini-2.5-pro':        { provider: 'google', label: 'Google API Key',   placeholder: 'AIzaxxxxxxxxxxxxxxxx',     hint: 'รับฟรีที่ <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>' },
+    'gemini-3.1-pro-preview':{ provider: 'google', label: 'Google API Key',   placeholder: 'AIzaxxxxxxxxxxxxxxxx',     hint: 'รับฟรีที่ <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>' },
+    // Groq
+    'meta-llama/llama-4-scout-17b-16e-instruct': { provider: 'groq', label: 'Groq API Key', placeholder: 'gsk_xxxxxxxxxxxxxxxx', hint: 'รับฟรีที่ <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a>' },
+    'llama-3.3-70b-versatile':                   { provider: 'groq', label: 'Groq API Key', placeholder: 'gsk_xxxxxxxxxxxxxxxx', hint: 'รับฟรีที่ <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a>' },
+    'llama-3.1-8b-instant':                      { provider: 'groq', label: 'Groq API Key', placeholder: 'gsk_xxxxxxxxxxxxxxxx', hint: 'รับฟรีที่ <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a>' },
+    // Mistral
+    'mistral-small-2506':    { provider: 'mistral', label: 'Mistral API Key', placeholder: 'xxxxxxxxxxxxxxxxxxxxxxxx', hint: 'รับ API Key ที่ <a href="https://console.mistral.ai/api-keys" target="_blank">console.mistral.ai</a>' },
+    'mistral-large-2411':    { provider: 'mistral', label: 'Mistral API Key', placeholder: 'xxxxxxxxxxxxxxxxxxxxxxxx', hint: 'รับ API Key ที่ <a href="https://console.mistral.ai/api-keys" target="_blank">console.mistral.ai</a>' },
+    'magistral-small-2506':  { provider: 'mistral', label: 'Mistral API Key', placeholder: 'xxxxxxxxxxxxxxxxxxxxxxxx', hint: 'รับ API Key ที่ <a href="https://console.mistral.ai/api-keys" target="_blank">console.mistral.ai</a>' },
+    'magistral-medium-2506': { provider: 'mistral', label: 'Mistral API Key', placeholder: 'xxxxxxxxxxxxxxxxxxxxxxxx', hint: 'รับ API Key ที่ <a href="https://console.mistral.ai/api-keys" target="_blank">console.mistral.ai</a>' },
+    // Anthropic
+    'claude-haiku-4-5-20251001': { provider: 'anthropic', label: 'Anthropic API Key', placeholder: 'sk-ant-xxxxxxxxxxxxxxxx', hint: 'รับ API Key ที่ <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>' },
+    'claude-sonnet-4-6':         { provider: 'anthropic', label: 'Anthropic API Key', placeholder: 'sk-ant-xxxxxxxxxxxxxxxx', hint: 'รับ API Key ที่ <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>' },
+    'claude-opus-4-7':           { provider: 'anthropic', label: 'Anthropic API Key', placeholder: 'sk-ant-xxxxxxxxxxxxxxxx', hint: 'รับ API Key ที่ <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>' },
+  };
+
+  const MODEL_LABELS = {
+    'deepseek-v4-flash': 'DeepSeek V4 Flash',
+    'deepseek-v4-pro':   'DeepSeek V4 Pro',
+    'gemini-3.1-flash-lite': 'Gemini 3.1 Flash Lite',
+    'gemini-2.5-flash':      'Gemini 2.5 Flash',
+    'gemini-2.5-pro':        'Gemini 2.5 Pro',
+    'gemini-3.1-pro-preview':'Gemini 3.1 Pro Preview',
+    'meta-llama/llama-4-scout-17b-16e-instruct': 'Llama 4 Scout 17B (Groq)',
+    'llama-3.3-70b-versatile': 'Llama 3.3 70B (Groq)',
+    'llama-3.1-8b-instant':    'Llama 3.1 8B (Groq)',
+    'mistral-small-2506':    'Mistral Small',
+    'mistral-large-2411':    'Mistral Large',
+    'magistral-small-2506':  'Magistral Small',
+    'magistral-medium-2506': 'Magistral Medium',
+    'claude-haiku-4-5-20251001': 'Claude Haiku 4.5',
+    'claude-sonnet-4-6':         'Claude Sonnet 4.6',
+    'claude-opus-4-7':           'Claude Opus 4.7',
+  };
+
+  // ── API Key localStorage helpers ──────────────────────────────
+  function _lsKeyFor(provider) { return `tax_apikey_${provider}`; }
+
+  function saveApiKey(provider, key) {
+    try {
+      if (key) localStorage.setItem(_lsKeyFor(provider), key);
+      else localStorage.removeItem(_lsKeyFor(provider));
+    } catch(e) {}
+  }
+
+  function loadApiKey(provider) {
+    try { return localStorage.getItem(_lsKeyFor(provider)) || ''; } catch(e) { return ''; }
+  }
+
+  function saveTavilyKey(key) {
+    try {
+      if (key) localStorage.setItem('tax_tavily_key', key);
+      else localStorage.removeItem('tax_tavily_key');
+    } catch(e) {}
+  }
+
+  function loadTavilyKey() {
+    try { return localStorage.getItem('tax_tavily_key') || ''; } catch(e) { return ''; }
+  }
+
+  function setKeySavedUI(hasSaved) {
+    document.getElementById('keySavedBadge').classList.toggle('visible', hasSaved);
+    document.getElementById('keyClearBtn').style.display = hasSaved ? '' : 'none';
+  }
+
+  function setTavSavedUI(hasSaved) {
+    document.getElementById('tavSavedBadge').classList.toggle('visible', hasSaved);
+    document.getElementById('tavClearBtn').style.display = hasSaved ? '' : 'none';
+  }
+
+  function clearSavedKey() {
+    const model = document.getElementById('modelSelect').value;
+    const info  = MODEL_INFO[model] || {};
+    saveApiKey(info.provider || '', '');
+    document.getElementById('apiKeyInput').value = '';
+    setKeySavedUI(false);
+  }
+
+  function clearSavedTavily() {
+    saveTavilyKey('');
+    document.getElementById('tavilyKeyInput').value = '';
+    setTavSavedUI(false);
+  }
+
+  function toggleKeyVisibility() {
+    const inp = document.getElementById('apiKeyInput');
+    inp.type  = inp.type === 'password' ? 'text' : 'password';
+    document.getElementById('keyEyeBtn').textContent = inp.type === 'password' ? '👁' : '🙈';
+  }
+
+  function toggleTavilyVisibility() {
+    const inp = document.getElementById('tavilyKeyInput');
+    inp.type  = inp.type === 'password' ? 'text' : 'password';
+    document.getElementById('tavEyeBtn').textContent = inp.type === 'password' ? '👁' : '🙈';
+  }
+
+  function onModelChange() {
+    const model = document.getElementById('modelSelect').value;
+    const info  = MODEL_INFO[model] || {};
+    document.getElementById('apiKeyLabel').textContent = info.label || 'API Key';
+    document.getElementById('apiKeyInput').placeholder = info.placeholder || 'xxxxxxxxxxxxxxxx';
+    document.getElementById('apiKeyHint').innerHTML    = info.hint || '';
+    // โหลด key ที่บันทึกไว้สำหรับ provider นี้ (ไม่ล้างทิ้ง)
+    const saved = loadApiKey(info.provider || '');
+    document.getElementById('apiKeyInput').value = saved;
+    setKeySavedUI(!!saved);
+  }
+
+  // ── Chat Sub-mode ─────────────────────────────────────────────
+  function setChatSubmode(mode) {
+    chatSubmode = mode;
+    document.getElementById('submodeSingle').classList.toggle('active', mode === 'single');
+    document.getElementById('submodeMulti').classList.toggle('active', mode === 'multi');
+    document.getElementById('submodeHint').textContent =
+      mode === 'single'
+        ? 'ถามตรง = ไม่จำประวัติ ประหยัด token'
+        : 'สนทนา = จำ 5 คู่ย้อนหลัง ตอบต่อเนื่องได้';
+  }
+
+  // ── Mode Switch ──────────────────────────────────────────────
+  function setMode(mode) {
+    currentMode = mode;
+    const btns   = ['BM25','AI','Answer','Chat','Semantic','Hybrid'];
+    // ปุ่มบางโหมดถูกซ่อนด้วย disabled_modes (cloud) — ต้องกัน null
+    btns.forEach(b => { const el = document.getElementById('btn'+b); if (el) el.className = 'mode-btn'; });
+
+    const aiBox    = document.getElementById('aiKeyBox');
+    const searchBtn = document.getElementById('searchBtn');
+    const wrap     = document.getElementById('searchWrap');
+    const tavSec   = document.getElementById('tavilySection');
+    const subSec   = document.getElementById('chatSubmodeSection');
+    const chatSec  = document.getElementById('chatSection');
+    const resList  = document.getElementById('resultsList');
+    const ansBox   = document.getElementById('answerBox');
+
+    // Reset
+    currentResultsData = null;
+    document.getElementById('exportWrap').classList.remove('visible');
+    aiBox.classList.remove('visible', 'chat-theme');
+    searchBtn.classList.remove('ai-btn');
+    searchBtn.style.display = '';
+    wrap.classList.remove('ai-mode');
+    tavSec.style.display    = 'none';
+    subSec.style.display    = 'none';
+    chatSec.classList.remove('visible');
+    resList.style.display   = '';
+    document.getElementById('aiSummaryBox').classList.remove('visible');
+    ansBox.classList.remove('visible');
+    document.getElementById('pagination').style.display = 'none';
+    document.getElementById('searchInput').placeholder  = 'พิมพ์คำถาม เช่น ค่าจ้างเหมา หัก ณ ที่จ่าย';
+    document.getElementById('tokenizeSwitchWrap').style.display = 'none';
+
+    if (mode === 'bm25') {
+      document.getElementById('btnBM25').className = 'mode-btn active-bm25';
+      document.getElementById('modeBadge').textContent = '';
+      searchBtn.textContent = 'ค้นหา';
+      document.getElementById('tokenizeSwitchWrap').style.display = '';
+
+    } else if (mode === 'ai') {
+      document.getElementById('btnAI').className = 'mode-btn active-ai';
+      aiBox.classList.add('visible');
+      searchBtn.classList.add('ai-btn');
+      wrap.classList.add('ai-mode');
+      document.getElementById('modeBadge').innerHTML = '🤖 AI ค้นหา';
+      searchBtn.textContent = 'ค้นหา';
+
+    } else if (mode === 'answer') {
+      document.getElementById('btnAnswer').className = 'mode-btn active-answer';
+      aiBox.classList.add('visible');
+      wrap.classList.add('ai-mode');
+      document.getElementById('modeBadge').innerHTML = '💬 AI ตอบ';
+      searchBtn.textContent = 'ถามเลย';
+      document.getElementById('searchInput').placeholder = 'พิมพ์คำถามภาษีที่ต้องการทราบ...';
+
+    } else if (mode === 'chat') {
+      document.getElementById('btnChat').className = 'mode-btn active-chat';
+      aiBox.classList.add('visible', 'chat-theme');
+      wrap.classList.add('ai-mode');
+      tavSec.style.display = 'block';
+      subSec.style.display = 'block';
+      searchBtn.style.display = 'none';
+      chatSec.classList.add('visible');
+      resList.style.display = 'none';
+      document.getElementById('modeBadge').innerHTML = '💬 แชท';
+      document.getElementById('searchInput').placeholder = 'ใช้กล่องแชทด้านขวา ↗';
+      document.getElementById('resultsCount').textContent = 'โหมดแชท — ถาม-ตอบต่อเนื่อง';
+      document.getElementById('tokenList').innerHTML = '';
+
+    } else if (mode === 'semantic') {
+      document.getElementById('btnSemantic').className = 'mode-btn active-semantic';
+      document.getElementById('modeBadge').innerHTML = '🔵 Vector Search';
+      searchBtn.textContent = 'ค้นหา';
+      document.getElementById('searchInput').placeholder = 'พิมพ์ประโยคเต็มๆ เช่น ค่าเช่าอสังหาริมทรัพย์ที่สามีภริยาถือร่วมกัน';
+    } else if (mode === 'hybrid') {
+      document.getElementById('btnHybrid').className = 'mode-btn active-hybrid';
+      document.getElementById('modeBadge').innerHTML = '🟣 Hybrid (BM25+Vector)';
+      searchBtn.textContent = 'ค้นหา';
+      document.getElementById('searchInput').placeholder = 'Hybrid: รวม BM25 + Vector — เหมาะกับทุก query';
+    }
+  }
+
+  // ── Stats ────────────────────────────────────────────────────
+  async function loadStats() {
+    try {
+      const r = await fetch('/api/stats');
+      const d = await r.json();
+      if (d.error) return;
+      const typeSummary = (d.doc_types||[]).map(t=>`${t.label}: ${t.count.toLocaleString()}`).join(' · ');
+      document.getElementById('topStats').innerHTML =
+        `<div><strong>${d.total.toLocaleString()}</strong> เอกสาร</div>
+         <div style="font-size:11px">${typeSummary || 'ปี 2540–2569'}</div>`;
+
+      const entries = Object.entries(d.tax_types).sort((a,b) => b[1]-a[1]).slice(0, 12);
+      const maxCnt  = entries[0]?.[1] || 1;
+      const colors  = {PIT:'var(--blue-500)',CIT:'#22C55E',VAT:'#F97316',WHT:'#A855F7',SBT:'#06B6D4',Stamp:'#EC4899'};
+      document.getElementById('taxBars').innerHTML = entries.map(([k,v]) => `
+        <div class="stat-bar-row">
+          <span class="stat-bar-label" title="${k}">${k}</span>
+          <div class="stat-bar-track">
+            <div class="stat-bar-fill" style="width:${(v/maxCnt*100).toFixed(1)}%;background:${colors[k]||'var(--blue-500)'}"></div>
+          </div>
+          <span class="stat-bar-count">${v.toLocaleString()}</span>
+        </div>`).join('');
+    } catch(e) {}
+  }
+
+  // ── Search Dispatcher ─────────────────────────────────────────
+  function doSearch(page = 1) {
+    if (currentMode === 'chat') return;
+    currentQuery   = document.getElementById('searchInput').value.trim();
+    currentPage    = page;
+    currentYearMin = document.getElementById('yearMin').value;
+    currentYearMax = document.getElementById('yearMax').value;
+    if (!currentQuery && !currentSectionRef) return;
+    document.getElementById('aiSummaryBox').classList.remove('visible');
+    updateUrl();
+
+    if (currentSectionRef && !currentQuery) { execSectionSearch(currentSectionRef, page); return; }
+    if (currentMode === 'ai')          execAISearch();
+    else if (currentMode === 'answer') execAIAnswer();
+    else if (currentMode === 'semantic') execSemanticSearch();
+    else if (currentMode === 'hybrid')   execHybridSearch();
+    else execBM25Search();
+  }
+
+  // ── BM25 Search ───────────────────────────────────────────────
+  async function execBM25Search() {
+    showLoading('กำลังค้นหา…');
+    const params = new URLSearchParams({
+      q: currentQuery, tax: currentTax,
+      doc_type: currentDocType,
+      year_min: currentYearMin, year_max: currentYearMax,
+      page: currentPage,
+    });
+    if (!currentTokenize) params.set('no_tokenize', '1');
+    try {
+      const r = await fetch('/api/search?' + params);
+      const d = await r.json();
+      renderResults(d, 'bm25');
+    } catch(e) { showError('เกิดข้อผิดพลาด: ' + e); }
+  }
+
+  // ── Section-ref Search (จาก tree page) ───────────────────────
+  async function execSectionSearch(sectionRef, page = 1) {
+    showLoading(`กำลังโหลดเอกสารที่อ้างอิง ${sectionRef}…`);
+    currentPage = page;
+    const params = new URLSearchParams({ section_ref: sectionRef, page });
+    try {
+      const r = await fetch('/api/search?' + params);
+      const d = await r.json();
+      renderResults(d, 'bm25');
+    } catch(e) { showError('เกิดข้อผิดพลาด: ' + e); }
+  }
+
+  // ── AI Search ─────────────────────────────────────────────────
+  async function execAISearch() {
+    const apiKey = document.getElementById('apiKeyInput').value.trim();
+    if (!apiKey) { highlightKeyInput(); return; }
+
+    showAILoading();
+    document.getElementById('searchBtn').disabled = true;
+    try {
+      const model = document.getElementById('modelSelect').value;
+      const r = await fetch('/api/ai_search', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          q: currentQuery, api_key: apiKey, model,
+          tax: currentTax, doc_type: currentDocType,
+          year_min: currentYearMin, year_max: currentYearMax,
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok || d.error) {
+        const detail = d.raw ? `\n\n[Raw API response]: ${d.raw}` : '';
+        showError((d.error || 'เกิดข้อผิดพลาด') + detail);
+        return;
+      }
+      renderResults(d, 'ai');
+    } catch(e) { showError('ไม่สามารถเชื่อมต่อได้: ' + e); }
+    finally { document.getElementById('searchBtn').disabled = false; }
+  }
+
+  // ── AI Answer ─────────────────────────────────────────────────
+  async function execAIAnswer() {
+    const apiKey = document.getElementById('apiKeyInput').value.trim();
+    if (!apiKey) { highlightKeyInput(); return; }
+    const model = document.getElementById('modelSelect').value;
+
+    document.getElementById('answerBox').classList.remove('visible');
+    document.getElementById('resultsList').innerHTML = `
+      <div class="ai-loading">
+        <div class="ai-loading-icon">💬</div>
+        <p>${MODEL_LABELS[model]||model} กำลังอ่านข้อหารือและตอบคำถาม…</p>
+        <small>อาจใช้เวลา 15–45 วินาที</small>
+      </div>`;
+    document.getElementById('pagination').style.display = 'none';
+    document.getElementById('searchBtn').disabled = true;
+
+    try {
+      const r = await fetch('/api/ai_answer', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          q: currentQuery, api_key: apiKey, model,
+          tax: currentTax, doc_type: currentDocType,
+          year_min: currentYearMin, year_max: currentYearMax,
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok || d.error) { showError(d.error || 'เกิดข้อผิดพลาด'); return; }
+      renderAnswer(d);
+    } catch(e) { showError('ไม่สามารถเชื่อมต่อได้: ' + e); }
+    finally { document.getElementById('searchBtn').disabled = false; }
+  }
+
+  // ── Semantic (Vector) Search ──────────────────────────────────
+  async function execSemanticSearch() {
+    showLoading('กำลังค้นหาแบบ Vector…');
+    document.getElementById('searchBtn').disabled = true;
+    try {
+      const r = await fetch('/api/semantic_search', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          q: currentQuery,
+          top_n: 20,
+          doc_type: currentDocType || undefined,
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok || d.error) {
+        const hint = r.status === 503
+          ? '\n\nเปิด Ollama.app แล้วรัน: ollama pull nomic-embed-text'
+          : '';
+        showError((d.error || 'เกิดข้อผิดพลาด') + hint);
+        return;
+      }
+      renderSemanticResults(d);
+    } catch(e) { showError('ไม่สามารถเชื่อมต่อได้: ' + e); }
+    finally { document.getElementById('searchBtn').disabled = false; }
+  }
+
+  function renderSemanticResults(d) {
+    const { results, total } = d;
+    currentResultsData = { results, q: currentQuery, mode: 'semantic' };
+    document.getElementById('exportWrap').classList.toggle('visible', !!(results && results.length));
+
+    document.getElementById('resultsCount').innerHTML = total
+      ? `Vector พบ <strong>${total}</strong> รายการที่ใกล้เคียง`
+      : 'ไม่พบผลลัพธ์';
+    document.getElementById('tokenList').innerHTML = '';
+    document.getElementById('aiSummaryBox').classList.remove('visible');
+    document.getElementById('answerBox').classList.remove('visible');
+
+    if (!results || !results.length) {
+      document.getElementById('resultsList').innerHTML = `
+        <div class="empty-state">
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+          <p>ไม่พบเอกสารที่มีความหมายใกล้เคียง</p>
+          <p style="font-size:12px;color:var(--gray-400)">ลองพิมพ์ประโยคหรือคำถามเต็มๆ</p>
+        </div>`;
+      document.getElementById('pagination').style.display = 'none';
+      return;
+    }
+
+    document.getElementById('resultsList').innerHTML = results.map((r, i) => `
+      <div class="result-card semantic-card" id="card-${r.id}" onclick="openDetail('${r.id}', this)">
+        <div class="card-header">
+          <span class="card-rank">${i + 1}</span>
+          <span class="card-ref">${escHtml(r.ref_number)}</span>
+          <span class="card-year">${r.year ? r.year + ' พ.ศ.' : ''}</span>
+          ${r.score != null ? `<span class="card-score-badge">${r.score}%</span>` : ''}
+          <button class="copy-btn" onclick="copyRef(event,'${escHtml(r.ref_number)}','${escHtml(r.date||'')}')">📋 คัดลอก</button>
+        </div>
+        <div class="card-title">${escHtml(r.title)}</div>
+        ${r.snippet ? `<div class="card-snippet">${escHtml(r.snippet.substring(0,200))}…</div>` : ''}
+        <div class="card-footer">
+          ${r.doc_type && r.doc_type !== 'ruling' ? `<span class="tax-badge" style="background:#F0FDF4;color:#166534;border-color:#BBF7D0">${DOC_TYPE_LABELS[r.doc_type]||r.doc_type}</span>` : ''}
+          ${(r.tax_type||[]).map(t => `<span class="tax-badge ${t}">${t}</span>`).join('')}
+          ${r.repealed ? `<span class="status-badge repealed">&#x274C; ยกเลิกแล้ว</span>` : ''}
+        </div>
+      </div>`).join('');
+
+    document.getElementById('pagination').style.display = 'none';
+  }
+
+  // ── Hybrid Search ─────────────────────────────────────────────
+  async function execHybridSearch() {
+    showLoading('กำลังค้นหาแบบ Hybrid…');
+    document.getElementById('searchBtn').disabled = true;
+    try {
+      const r = await fetch('/api/hybrid_search', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ q: currentQuery, top_n: 20, doc_type: currentDocType || undefined }),
+      });
+      const d = await r.json();
+      if (!r.ok || d.error) {
+        const hint = (d.error||'').includes('Ollama') ? '\n\nตรวจสอบว่า Ollama.app เปิดอยู่' : '';
+        showError((d.error || 'เกิดข้อผิดพลาด') + hint);
+        return;
+      }
+      renderHybridResults(d);
+    } catch(e) { showError('ไม่สามารถเชื่อมต่อได้: ' + e); }
+    finally { document.getElementById('searchBtn').disabled = false; }
+  }
+
+  function renderHybridResults(d) {
+    const { results, total } = d;
+    currentResultsData = { results, q: currentQuery, mode: 'hybrid' };
+    document.getElementById('exportWrap').classList.toggle('visible', !!(results && results.length));
+    document.getElementById('resultsCount').innerHTML = total
+      ? `Hybrid พบ <strong>${total}</strong> รายการ`
+      : 'ไม่พบผลลัพธ์';
+    document.getElementById('tokenList').innerHTML = '';
+    document.getElementById('aiSummaryBox').classList.remove('visible');
+    document.getElementById('answerBox').classList.remove('visible');
+
+    if (!results || !results.length) {
+      document.getElementById('resultsList').innerHTML = `
+        <div class="empty-state"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <p>ไม่พบผลลัพธ์</p></div>`;
+      document.getElementById('pagination').style.display = 'none';
+      return;
+    }
+
+    document.getElementById('resultsList').innerHTML = results.map((r, i) => {
+      const srcBadge = [r.in_bm25 && 'BM25', r.in_vec && 'Vec'].filter(Boolean).join('+');
+      return `
+      <div class="result-card hybrid-card" id="card-${r.id}" onclick="openDetail('${r.id}', this)">
+        <div class="card-header">
+          <span class="card-rank">${i + 1}</span>
+          <span class="card-ref">${escHtml(r.ref_number)}</span>
+          <span class="card-year">${r.year ? r.year + ' พ.ศ.' : ''}</span>
+          <span class="card-score-badge hybrid" title="RRF score">${srcBadge}</span>
+          <button class="copy-btn" onclick="copyRef(event,'${escHtml(r.ref_number)}','${escHtml(r.date||'')}')">📋 คัดลอก</button>
+        </div>
+        <div class="card-title">${escHtml(r.title)}</div>
+        ${r.snippet ? `<div class="card-snippet">${r.snippet.substring(0,200)}…</div>` : ''}
+        <div class="card-footer">
+          ${r.doc_type && r.doc_type !== 'ruling' ? `<span class="tax-badge" style="background:#F5F3FF;color:#5B21B6;border-color:#DDD6FE">${DOC_TYPE_LABELS[r.doc_type]||r.doc_type}</span>` : ''}
+          ${(r.tax_type||[]).map(t => `<span class="tax-badge ${t}">${t}</span>`).join('')}
+          ${r.repealed ? `<span class="status-badge repealed">&#x274C; ยกเลิกแล้ว</span>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+    document.getElementById('pagination').style.display = 'none';
+  }
+
+  function renderAnswer(d) {
+    // Store for export (cited rulings as results)
+    currentResultsData = { results: d.cited_rulings || [], q: currentQuery, ai_summary: d.summary, answer: d.answer, mode: 'answer' };
+    document.getElementById('exportWrap').classList.toggle('visible', !!(d.cited_rulings && d.cited_rulings.length));
+
+    document.getElementById('resultsCount').innerHTML =
+      `อ้างอิง <strong>${d.cited_rulings?.length||0}</strong> จาก <strong>${d.all_rulings?.length||0}</strong> ข้อหารือ`;
+    document.getElementById('tokenList').innerHTML =
+      (d.tokens||[]).map(t=>`<span class="token-badge ai">${t}</span>`).join('');
+
+    const confEl = document.getElementById('confidenceBadge');
+    const confMap = {high:'สูง', medium:'ปานกลาง', low:'ต่ำ'};
+    confEl.textContent = confMap[d.confidence] || d.confidence;
+    confEl.className   = `confidence-badge ${d.confidence||'medium'}`;
+
+    document.getElementById('answerModelLabel').textContent = d.model_label || '';
+    document.getElementById('answerSummary').textContent    = d.summary || '';
+    document.getElementById('answerText').textContent       = d.answer  || '';
+
+    // law_chain_summary
+    const chainBox  = document.getElementById('lawChainBox');
+    const chainText = document.getElementById('lawChainText');
+    if (d.law_chain_summary) {
+      chainText.textContent = d.law_chain_summary;
+      chainBox.style.display = 'block';
+    } else {
+      chainBox.style.display = 'none';
+    }
+
+    // copy answer button
+    const copyBtn = document.getElementById('copyAnswerBtn');
+    copyBtn.style.display = d.answer ? 'inline-flex' : 'none';
+
+    if (d.note) {
+      document.getElementById('answerNote').style.display = 'block';
+      document.getElementById('answerNoteText').textContent = d.note;
+    } else {
+      document.getElementById('answerNote').style.display = 'none';
+    }
+
+    document.getElementById('citedList').innerHTML = (d.cited_rulings||[]).map(r => `
+      <div class="cited-card" onclick="openDetail('${r.id}', this)">
+        <div class="cited-card-ref" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span>${escHtml(r.ref_number)}</span>
+          <span style="font-size:10px;color:#94A3B8;font-family:sans-serif">${r.year} พ.ศ.</span>
+          <button class="copy-btn" onclick="copyRef(event,'${escHtml(r.ref_number)}','${escHtml(r.date||'')}')">📋 คัดลอก</button>
+        </div>
+        <div class="cited-card-title">${escHtml(r.title)}</div>
+        ${r.snippet ? `<div class="cited-card-snippet">${escHtml(r.snippet.substring(0,150))}…</div>` : ''}
+      </div>`).join('') || '<p style="font-size:12px;color:var(--gray-400)">AI ไม่ได้อ้างอิงข้อหารือเฉพาะเจาะจง</p>';
+
+    document.getElementById('allRulingsList').innerHTML = (d.all_rulings||[]).map(r => `
+      <div class="all-ruling-row" onclick="openDetail('${r.id}', this)">
+        <div class="all-ruling-dot ${r.cited?'cited':'notcited'}"></div>
+        <span style="font-family:monospace;font-size:11px;color:#0F766E;width:160px;flex-shrink:0">${escHtml(r.ref_number)}</span>
+        <span style="font-size:11px;color:var(--gray-600);flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${escHtml(r.title)}</span>
+        <span style="font-size:10px;color:var(--gray-400);flex-shrink:0">${r.year}</span>
+      </div>`).join('');
+
+    const orWarn2 = document.getElementById('answerOrFallbackWarn');
+    if (orWarn2) orWarn2.style.display = d.used_or_fallback ? 'block' : 'none';
+
+    document.getElementById('answerBox').classList.add('visible');
+    document.getElementById('resultsList').innerHTML = '';
+  }
+
+  function toggleAllRulings() {
+    const el  = document.getElementById('allRulingsList');
+    const btn = document.querySelector('.all-rulings-toggle');
+    if (el.classList.toggle('open')) btn.textContent = '▾ ซ่อนรายการ';
+    else btn.textContent = '▸ ดูข้อหารือทั้งหมดที่ค้นพบ';
+  }
+
+  // ── Chat Functions ────────────────────────────────────────────
+  function clearChat() {
+    chatHistory = [];
+    document.getElementById('chatBubbles').innerHTML = `
+      <div class="chat-empty">
+        <div class="chat-empty-icon">💬</div>
+        <p style="font-size:14px;font-weight:600;color:var(--gray-500)">ถามคำถามด้านภาษีได้เลย</p>
+        <p style="font-size:12px">AI จะค้นจากฐานข้อหารือ + อินเทอร์เน็ต แล้วตอบให้พร้อมอ้างอิง</p>
+      </div>`;
+  }
+
+  function saveChatHistory() {
+    const bubbles = document.getElementById('chatBubbles');
+    const rows = bubbles.querySelectorAll('.msg-row');
+
+    if (rows.length === 0) {
+      alert('ยังไม่มีประวัติแชท — ลองถามคำถามก่อนครับ');
+      return;
+    }
+
+    // Build chat blocks HTML
+    let chatBlocksHtml = '';
+    rows.forEach(row => {
+      const isUser = row.classList.contains('user');
+      const label  = row.querySelector('.msg-label')?.textContent?.trim() || (isUser ? 'คุณ' : 'AI');
+      const text   = row.querySelector('.msg-bubble')?.textContent?.trim() || '';
+
+      // Collect source chips
+      const dbRefs  = [];
+      const webRefs = [];
+      row.querySelectorAll('.msg-source-chip.db').forEach(c => {
+        dbRefs.push({
+          ref:   c.getAttribute('data-ref') || c.textContent.replace('📄','').trim(),
+          title: c.getAttribute('title') || '',
+          year:  c.getAttribute('data-year') || '',
+        });
+      });
+      row.querySelectorAll('.msg-source-chip.web').forEach(c => {
+        webRefs.push({ title: (c.getAttribute('title')||c.textContent.replace('🌐','').trim()).substring(0,80), url: c.href });
+      });
+
+      let refsHtml = '';
+      if (dbRefs.length || webRefs.length) {
+        let parts = '';
+        if (dbRefs.length) {
+          const cards = dbRefs.map(r => `
+            <div class="ref-card">
+              <div class="ref-card-top">
+                <span class="ref-num">📄 ${escHtml(r.ref)}</span>
+                ${r.year ? `<span class="ref-year">${r.year} พ.ศ.</span>` : ''}
+              </div>
+              ${r.title ? `<div class="ref-title">${escHtml(r.title)}</div>` : ''}
+            </div>`).join('');
+          parts += `<div class="ref-group"><div class="ref-group-label">📚 ข้อหารือที่อ้างอิง</div><div class="ref-cards">${cards}</div></div>`;
+        }
+        if (webRefs.length) {
+          const links = webRefs.map(r =>
+            `<a href="${escHtml(r.url)}" target="_blank" class="web-ref-link">🌐 ${escHtml(r.title)}</a>`
+          ).join('');
+          parts += `<div class="ref-group"><div class="ref-group-label">🔍 แหล่งข้อมูลเว็บ</div><div class="web-refs">${links}</div></div>`;
+        }
+        refsHtml = `<div class="msg-refs">${parts}</div>`;
+      }
+
+      chatBlocksHtml += `
+      <div class="msg-block ${isUser ? 'user' : 'ai'}">
+        <div class="msg-label">${escHtml(label)}</div>
+        <div class="msg-text">${escHtml(text)}</div>
+        ${refsHtml}
+      </div>`;
+    });
+
+    // Date/time
+    const now = new Date();
+    const buddhistYear = now.getFullYear() + 543;
+    const thMonths = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+    const dateStr = `${now.getDate()} ${thMonths[now.getMonth()]} ${buddhistYear} เวลา ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} น.`;
+
+    // Count turns
+    const userTurns = bubbles.querySelectorAll('.msg-row.user').length;
+    const model = document.getElementById('modelSelect')?.value || '';
+    const modelLabel = MODEL_LABELS[model] || model;
+
+    const fullHtml = `<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ประวัติแชทภาษี — ${dateStr}</title>
+<style>
+  body {
+    font-family: 'Segoe UI', 'Noto Sans Thai', Arial, sans-serif;
+    background: #F8FAFC;
+    color: #0F172A;
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 32px 24px 60px;
+    font-size: 14px;
+    line-height: 1.65;
+  }
+  .header {
+    border-bottom: 2px solid #DBEAFE;
+    padding-bottom: 14px;
+    margin-bottom: 10px;
+  }
+  .header h1 {
+    font-size: 20px;
+    color: #0F2A5C;
+    margin: 0 0 4px;
+  }
+  .meta {
+    font-size: 12px;
+    color: #64748B;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 28px;
+  }
+  .meta span { display: flex; align-items: center; gap: 4px; }
+  .msg-block { margin-bottom: 18px; display: flex; flex-direction: column; }
+  .msg-block.user { align-items: flex-end; }
+  .msg-block.ai   { align-items: flex-start; }
+  .msg-label {
+    font-size: 11px;
+    color: #94A3B8;
+    margin-bottom: 4px;
+    font-weight: 600;
+    letter-spacing: .3px;
+  }
+  .msg-text {
+    padding: 12px 16px;
+    border-radius: 12px;
+    white-space: pre-wrap;
+    max-width: 82%;
+    word-break: break-word;
+    line-height: 1.75;
+  }
+  .msg-block.user .msg-text {
+    background: #1D4ED8;
+    color: #fff;
+    border-bottom-right-radius: 3px;
+    font-size: 14px;
+  }
+  .msg-block.ai .msg-text {
+    background: #fff;
+    border: 1px solid #E2E8F0;
+    border-bottom-left-radius: 3px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    font-size: 13px;
+    color: #1E293B;
+  }
+  .msg-refs {
+    margin-top: 6px;
+    font-size: 11px;
+    color: #94A3B8;
+    max-width: 82%;
+    line-height: 1.6;
+  }
+  .msg-refs { margin-top: 10px; max-width: 82%; display: flex; flex-direction: column; gap: 8px; }
+  .ref-group { display: flex; flex-direction: column; gap: 6px; }
+  .ref-group-label { font-size: 10px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: .6px; }
+  .ref-cards { display: flex; flex-direction: column; gap: 5px; }
+  .ref-card {
+    background: #EFF6FF;
+    border: 1px solid #BFDBFE;
+    border-radius: 6px;
+    padding: 7px 10px;
+  }
+  .ref-card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+  .ref-num { font-size: 11px; font-weight: 700; color: #1D4ED8; font-family: monospace; }
+  .ref-year { font-size: 10px; color: #94A3B8; }
+  .ref-title { font-size: 11px; color: #334155; line-height: 1.5; }
+  .web-refs { display: flex; flex-direction: column; gap: 3px; }
+  .web-ref-link { font-size: 11px; color: #C2410C; text-decoration: none; line-height: 1.6; }
+  .web-ref-link:hover { text-decoration: underline; }
+  .footer {
+    margin-top: 48px;
+    padding-top: 14px;
+    border-top: 1px solid #E2E8F0;
+    font-size: 11px;
+    color: #94A3B8;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  @media print {
+    body { background: #fff; padding: 20px; }
+    .msg-block.ai .msg-text { border: 1px solid #CBD5E1; box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>📋 ประวัติแชทข้อหารือภาษีอากร</h1>
+</div>
+<div class="meta">
+  <span>📅 ${escHtml(dateStr)}</span>
+  <span>💬 ${userTurns} คำถาม</span>
+  ${modelLabel ? `<span>🤖 ${escHtml(modelLabel)}</span>` : ''}
+  <span>📚 ฐานข้อหารือกรมสรรพากร ปี 2540–2569</span>
+</div>
+
+${chatBlocksHtml}
+
+<div class="footer">
+  <span>บันทึกโดยระบบค้นหาข้อหารือภาษีอากร กรมสรรพากร</span>
+  <span>ข้อมูลนี้ใช้เป็นข้อมูลอ้างอิงเบื้องต้นเท่านั้น ควรตรวจสอบกับเอกสารต้นฉบับ</span>
+</div>
+</body>
+</html>`;
+
+    // Download
+    const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const pad  = n => String(n).padStart(2, '0');
+    const fname = `แชทภาษี_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.html`;
+    a.href     = url;
+    a.download = fname;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function appendChatBubble(role, content, meta) {
+    const bubbles = document.getElementById('chatBubbles');
+    const empty   = bubbles.querySelector('.chat-empty');
+    if (empty) empty.remove();
+
+    const row = document.createElement('div');
+    row.className = `msg-row ${role}`;
+
+    if (role === 'user') {
+      row.innerHTML = `
+        <div class="msg-label">คุณ</div>
+        <div class="msg-bubble">${escHtml(content)}</div>`;
+    } else {
+      const sourcesHtml = meta ? _buildSourcesHtml(meta) : '';
+      row.innerHTML = `
+        <div class="msg-label">🤖 ${escHtml(meta?.model_label || 'AI')}</div>
+        <div class="msg-bubble">${escHtml(content)}</div>
+        ${sourcesHtml}`;
+    }
+
+    bubbles.appendChild(row);
+    bubbles.scrollTop = bubbles.scrollHeight;
+    return row;
+  }
+
+  function copyAnswer() {
+    const summary = document.getElementById('answerSummary').textContent;
+    const answer  = document.getElementById('answerText').textContent;
+    const chain   = document.getElementById('lawChainText').textContent;
+    let text = '';
+    if (summary) text += summary + '\n\n';
+    if (answer)  text += answer + '\n';
+    if (chain)   text += '\nสายกฎหมาย: ' + chain;
+    navigator.clipboard.writeText(text.trim()).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = text.trim(); document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
+    });
+    const btn = document.getElementById('copyAnswerBtn');
+    btn.classList.add('copied'); btn.textContent = '✓ คัดลอกแล้ว';
+    setTimeout(() => { btn.classList.remove('copied'); btn.textContent = '📋 คัดลอก'; }, 2500);
+  }
+
+  function copyRef(e, ref, date) {
+    e.stopPropagation();
+    const text = (date && date !== 'undefined') ? `หนังสือกรมสรรพากรที่ ${ref} ลงวันที่ ${date}` : ref;
+    navigator.clipboard.writeText(text).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
+    });
+    const btn = e.currentTarget;
+    btn.classList.add('copied');
+    btn.textContent = '✓ คัดลอก';
+    setTimeout(() => { btn.classList.remove('copied'); btn.textContent = '📋 คัดลอก'; }, 2000);
+  }
+
+  async function sendChat() {
+    const q = document.getElementById('chatInput').value.trim();
+    if (!q) return;
+
+    const apiKey = document.getElementById('apiKeyInput').value.trim();
+    if (!apiKey) { highlightKeyInput(); return; }
+
+    const model      = document.getElementById('modelSelect').value;
+    const tavilyKey  = document.getElementById('tavilyKeyInput').value.trim();
+
+    document.getElementById('chatInput').value = '';
+    appendChatBubble('user', q);
+
+    const bubbles  = document.getElementById('chatBubbles');
+    const thinkRow = document.createElement('div');
+    thinkRow.className = 'msg-row ai';
+    thinkRow.innerHTML = `
+      <div class="msg-label">🤖 กำลังค้นหา…</div>
+      <div class="chat-thinking">
+        <div class="thinking-dots"><span></span><span></span><span></span></div>
+        <span>ค้น DB + ${tavilyKey ? 'Tavily' : 'DuckDuckGo'}…</span>
+      </div>`;
+    bubbles.appendChild(thinkRow);
+    bubbles.scrollTop = bubbles.scrollHeight;
+    document.getElementById('chatSendBtn').disabled = true;
+
+    const historyToSend = chatSubmode === 'multi' ? chatHistory.slice(-10) : [];
+
+    try {
+      const resp = await fetch('/api/chat_stream', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ q, api_key: apiKey, model, history: historyToSend, tavily_key: tavilyKey }),
+      });
+
+      if (!resp.ok) {
+        const d = await resp.json().catch(() => ({}));
+        thinkRow.remove();
+        const errRow = document.createElement('div');
+        errRow.className = 'msg-row ai';
+        errRow.innerHTML = `<div class="error-box" style="margin:0;max-width:78%">${escHtml(d.error||'เกิดข้อผิดพลาด')}</div>`;
+        bubbles.appendChild(errRow);
+        return;
+      }
+
+      const reader  = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '', fullText = '', metaData = null, aiRow = null, aiBubble = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+          let evt;
+          try { evt = JSON.parse(raw); } catch { continue; }
+
+          if (evt.type === 'meta') {
+            metaData = evt;
+            thinkRow.remove();
+            // Create AI bubble with empty text — will fill via streaming
+            aiRow = document.createElement('div');
+            aiRow.className = 'msg-row ai';
+            const srcHtml = _buildSourcesHtml(evt);
+            aiRow.innerHTML = `
+              <div class="msg-label">🤖 ${escHtml(evt.model_label||'AI')}</div>
+              <div class="msg-bubble" id="streamBubble"></div>
+              ${srcHtml}`;
+            bubbles.appendChild(aiRow);
+            aiBubble = document.getElementById('streamBubble');
+
+          } else if (evt.type === 'text' && aiBubble) {
+            fullText += evt.content;
+            aiBubble.textContent = fullText;
+            bubbles.scrollTop = bubbles.scrollHeight;
+
+          } else if (evt.type === 'error') {
+            if (thinkRow.parentNode) thinkRow.remove();
+            const errRow = document.createElement('div');
+            errRow.className = 'msg-row ai';
+            errRow.innerHTML = `<div class="error-box" style="margin:0;max-width:78%">${escHtml(evt.error||'เกิดข้อผิดพลาด')}</div>`;
+            bubbles.appendChild(errRow);
+            return;
+          }
+        }
+      }
+
+      // Remove id attr to avoid conflict on next call
+      if (aiBubble) aiBubble.removeAttribute('id');
+
+      if (fullText) {
+        chatHistory.push({role: 'user',      content: q});
+        chatHistory.push({role: 'assistant', content: fullText});
+        if (chatHistory.length > 20) chatHistory = chatHistory.slice(-20);
+      }
+
+      if (metaData) {
+        const srcBadge = document.getElementById('chatWebBadge');
+        if (metaData.web_source === 'tavily')          srcBadge.textContent = '🔍 Web: Tavily';
+        else if (metaData.web_source === 'duckduckgo') srcBadge.textContent = '🔍 Web: DuckDuckGo';
+        else                                            srcBadge.textContent = '🔍 Web: ไม่พบผล';
+      }
+
+    } catch(e) {
+      if (thinkRow.parentNode) thinkRow.remove();
+      const errRow = document.createElement('div');
+      errRow.className = 'msg-row ai';
+      errRow.innerHTML = `<div class="error-box" style="margin:0;max-width:78%">เชื่อมต่อไม่ได้: ${escHtml(String(e))}</div>`;
+      bubbles.appendChild(errRow);
+    } finally {
+      document.getElementById('chatSendBtn').disabled = false;
+      bubbles.scrollTop = bubbles.scrollHeight;
+    }
+  }
+
+  function _buildSourcesHtml(meta) {
+    const dbChips = (meta.db_results||[]).map(r =>
+      `<span class="msg-source-chip db" onclick="openDetail('${escHtml(r.id)}', this)" title="${escHtml(r.title)}" data-ref="${escHtml(r.ref)}" data-year="${r.year||''}">📄 ${escHtml(r.ref)}</span>`
+    ).join('');
+    const webChips = (meta.web_results||[]).map(r =>
+      `<a class="msg-source-chip web" href="${escHtml(r.url)}" target="_blank" rel="noopener" title="${escHtml(r.url)}">🌐 ${escHtml((r.title||'').substring(0,35))}</a>`
+    ).join('');
+    const rulingChips = (meta.related_rulings||[]).map(r =>
+      `<span class="msg-source-chip ruling" onclick="openDetail('${escHtml(r.id)}', this)" title="${escHtml(r.title||r.ref)}" data-ref="${escHtml(r.ref)}" data-year="${r.year||''}">📋 ${escHtml(r.ref)}</span>`
+    ).join('');
+    const srcRow     = (dbChips || webChips) ? `<div class="msg-sources">${dbChips}${webChips}</div>` : '';
+    const rulingRow  = rulingChips ? `<div class="msg-sources ruling-row"><span class="src-label">ข้อหารือที่ใกล้เคียง:</span>${rulingChips}</div>` : '';
+    return srcRow + rulingRow;
+  }
+
+  // ── Render Results ────────────────────────────────────────────
+  function renderResults(d, mode) {
+    const { results, total, tokens, ai_summary } = d;
+    const page     = d.page || 1;
+    const per_page = d.per_page || 20;
+
+    // Store for export
+    currentResultsData = { ...d, q: currentQuery, mode };
+    document.getElementById('exportWrap').classList.toggle('visible', !!(results && results.length));
+
+    const countEl = document.getElementById('resultsCount');
+    if (!total) {
+      countEl.innerHTML = 'ไม่พบผลลัพธ์';
+    } else if (mode === 'ai') {
+      countEl.innerHTML = `AI เลือก <strong>${total}</strong> รายการที่เกี่ยวข้อง`;
+    } else {
+      const s = (page-1)*per_page + 1;
+      const e = Math.min(page*per_page, total);
+      countEl.innerHTML = `แสดง <strong>${s}–${e}</strong> จาก <strong>${total.toLocaleString()}</strong> รายการ`;
+    }
+
+    const cls = mode === 'ai' ? 'token-badge ai' : 'token-badge';
+    document.getElementById('tokenList').innerHTML =
+      (tokens||[]).map(t => `<span class="${cls}">${t}</span>`).join('');
+
+    if (mode === 'ai' && ai_summary) {
+      document.getElementById('aiSummaryText').textContent = ai_summary;
+      document.getElementById('aiSummaryBox').classList.add('visible');
+    }
+
+    if (mode === 'bm25') {
+      const parts = [];
+      if (d.no_tokenize) parts.push('🔤 ไม่ตัดคำ');
+      if (d.mode === 'OR') parts.push('OR fallback');
+      document.getElementById('modeBadge').textContent = parts.join(' · ');
+    }
+    const orWarn = document.getElementById('orFallbackWarn');
+    if (orWarn) {
+      if (mode !== 'bm25' && d.used_or_fallback) {
+        orWarn.style.display = 'block';
+      } else {
+        orWarn.style.display = 'none';
+      }
+    }
+
+    if (!results || !results.length) {
+      document.getElementById('resultsList').innerHTML = `
+        <div class="empty-state">
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+          <p>ไม่พบข้อหารือที่เกี่ยวข้อง</p>
+          <p style="font-size:12px;color:var(--gray-400)">ลองเปลี่ยนคำค้นหา</p>
+        </div>`;
+      document.getElementById('pagination').style.display = 'none';
+      return;
+    }
+
+    document.getElementById('resultsList').innerHTML = results.map((r, i) => {
+      const snippetHtml = mode === 'bm25'
+        ? (r.snippet ? `<div class="card-snippet">${r.snippet}</div>` : '')
+        : (r.snippet ? `<div class="card-snippet">${escHtml(r.snippet.substring(0,200))}…</div>` : '');
+      const plainSummaryHtml = r.plain_summary
+        ? `<div class="card-plain-summary">💡 ${escHtml(r.plain_summary)}</div>` : '';
+
+      const scoreBadge = (mode === 'ai' && r.relevance_score)
+        ? `<span class="relevance-score-badge">คะแนน ${r.relevance_score}/10</span>` : '';
+      const relevanceHtml = mode === 'ai' && r.relevance ? `
+        <div class="card-relevance">
+          <div class="card-relevance-label">🤖 ความเกี่ยวข้อง ${scoreBadge}</div>
+          ${escHtml(r.relevance)}
+        </div>` : '';
+
+      const cardClass = mode === 'ai' ? 'result-card ai-card' : 'result-card';
+
+      return `
+        <div class="${cardClass}" id="card-${r.id}" onclick="openDetail('${r.id}', this)">
+          <div class="card-header">
+            <span class="card-rank">${(page-1)*per_page + i + 1}</span>
+            <span class="card-ref">${escHtml(r.ref_number)}</span>
+            <span class="card-year">${r.year ? r.year + ' พ.ศ.' : ''}</span>
+            <button class="copy-btn" onclick="copyRef(event,'${escHtml(r.ref_number)}','${escHtml(r.date||'')}')">📋 คัดลอก</button>
+          </div>
+          <div class="card-title">${escHtml(r.title)}</div>
+          ${snippetHtml}${plainSummaryHtml}${relevanceHtml}
+          <div class="card-footer">
+            ${r.doc_type && r.doc_type !== 'ruling' ? `<span class="tax-badge" style="background:#F0FDF4;color:#166534;border-color:#BBF7D0">${DOC_TYPE_LABELS[r.doc_type]||r.doc_type}</span>` : ''}
+            ${(r.tax_type||[]).map(t => `<span class="tax-badge ${t}">${t}</span>`).join('')}
+            ${r.repealed ? `<span class="status-badge repealed">&#x274C; ยกเลิกแล้ว</span>` : ''}
+            ${!r.repealed && r.has_amendment ? `<span class="status-badge amended">&#x26A0; ถูกแก้ไข</span>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+
+    const totalPages = Math.ceil(total / per_page);
+    if (mode === 'bm25' && totalPages > 1) {
+      renderPagination(page, totalPages);
+      document.getElementById('pagination').style.display = 'flex';
+    } else {
+      document.getElementById('pagination').style.display = 'none';
+    }
+
+    // ── Q&A hits section ───────────────────────────────────────────────────
+    const qaHits = d.qa_hits || [];
+    let qaContainer = document.getElementById('qa-hits-section');
+    if (!qaContainer) {
+      qaContainer = document.createElement('div');
+      qaContainer.id = 'qa-hits-section';
+      qaContainer.style.cssText = 'margin-top:16px';
+      const resultsEl = document.getElementById('results');
+      if (resultsEl && resultsEl.parentNode) {
+        resultsEl.parentNode.insertBefore(qaContainer, resultsEl.nextSibling);
+      }
+    }
+    if (qaHits.length > 0 && mode === 'bm25') {
+      qaContainer.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-top:4px">
+          <span style="font-size:13px;font-weight:600;color:#7C3AED">💬 Q&A ที่เกี่ยวข้อง</span>
+          <span style="font-size:11px;color:#9CA3AF">${qaHits.length} รายการจาก RD Intelligence Center</span>
+        </div>
+        ${qaHits.map(r => `
+          <div class="result-card" onclick="showDetail('${r.id}')" style="border-left:3px solid #7C3AED;cursor:pointer;margin-bottom:8px">
+            <div class="card-header">
+              <span class="card-title">${escHtml(r.title)}</span>
+              <span class="tax-badge" style="background:#F5F3FF;color:#5B21B6;border-color:#DDD6FE">Q&A</span>
+            </div>
+            ${r.snippet ? `<div class="card-snippet">${r.snippet.substring(0,200)}…</div>` : ''}
+            ${r.plain_summary ? `<div class="card-snippet" style="color:#6B7280;margin-top:4px">${escHtml(r.plain_summary.substring(0,150))}</div>` : ''}
+            ${r.source_url ? `<div style="font-size:11px;color:#9CA3AF;margin-top:4px">🔗 <a href="${r.source_url}" target="_blank" onclick="event.stopPropagation()" style="color:#7C3AED">ดูต้นฉบับ rd.go.th</a></div>` : ''}
+          </div>
+        `).join('')}`;
+    } else {
+      qaContainer.innerHTML = '';
+    }
+  }
+
+  function renderPagination(current, total) {
+    let pages = new Set([1, total]);
+    for (let p = current-2; p <= current+2; p++) { if (p > 0 && p <= total) pages.add(p); }
+    pages = [...pages].sort((a,b) => a-b);
+
+    let html = `<button class="page-btn" onclick="doSearch(${current-1})" ${current===1?'disabled':''}>‹</button>`;
+    let prev = 0;
+    for (const p of pages) {
+      if (p - prev > 1) html += `<span style="color:var(--gray-400);padding:0 4px">…</span>`;
+      html += `<button class="page-btn ${p===current?'active':''}" onclick="doSearch(${p})">${p}</button>`;
+      prev = p;
+    }
+    html += `<button class="page-btn" onclick="doSearch(${current+1})" ${current===total?'disabled':''}>›</button>`;
+    document.getElementById('pagination').innerHTML = html;
+  }
+
+  // ── Loading States ────────────────────────────────────────────
+  function showLoading(msg) {
+    document.getElementById('resultsList').innerHTML =
+      `<div class="loading-row"><div class="spinner"></div> ${msg}</div>`;
+    document.getElementById('pagination').style.display = 'none';
+  }
+
+  function showAILoading() {
+    const model = document.getElementById('modelSelect').value;
+    const label = MODEL_LABELS[model] || model;
+    document.getElementById('resultsList').innerHTML = `
+      <div class="ai-loading">
+        <div class="ai-loading-icon">🤖</div>
+        <p>${label} กำลังวิเคราะห์ข้อหารือ…</p>
+        <small>อาจใช้เวลา 10–30 วินาที</small>
+      </div>`;
+    document.getElementById('pagination').style.display = 'none';
+  }
+
+  function showError(msg) {
+    document.getElementById('resultsList').innerHTML =
+      `<div class="error-box">${escHtml(msg)}</div>`;
+  }
+
+  function highlightKeyInput() {
+    const el = document.getElementById('apiKeyInput');
+    el.focus();
+    el.style.borderColor = '#EF4444';
+    setTimeout(() => el.style.borderColor = '', 2000);
+  }
+
+  // ── Detail Panel ──────────────────────────────────────────────
+  let detailHistory = [];   // stack ของ id ที่เปิดมาก่อน
+  let detailCurrentId = null;
+
+  function _updateBackBtn() {
+    const btn = document.getElementById('detailBackBtn');
+    if (btn) btn.style.display = detailHistory.length ? 'inline-block' : 'none';
+  }
+
+  async function openDetail(id, cardEl, _skipPush) {
+    const panelOpen = document.getElementById('detailPanel').classList.contains('open');
+
+    if (cardEl) {
+      // คลิกจาก search result → reset history
+      detailHistory = [];
+      if (activeCard) activeCard.classList.remove('active');
+      activeCard = cardEl;
+      if (cardEl.classList) cardEl.classList.add('active');
+    } else if (!_skipPush && panelOpen && detailCurrentId && detailCurrentId !== id) {
+      // คลิกจากลิงก์ภายใน detail → push ของเดิมเข้า stack
+      detailHistory.push(detailCurrentId);
+    }
+
+    detailCurrentId = id;
+    _updateBackBtn();
+
+    document.getElementById('detailOverlay').classList.add('open');
+    document.getElementById('detailPanel').classList.add('open');
+    document.getElementById('detailRef').textContent  = '…';
+    document.getElementById('detailDate').textContent = '…';
+    document.getElementById('detailBody').innerHTML   =
+      '<div class="loading-row"><div class="spinner"></div> กำลังโหลดรายละเอียด…</div>';
+
+    try {
+      const [r1, r2, r3] = await Promise.all([
+        fetch('/api/detail/'   + encodeURIComponent(id)),
+        fetch('/api/related/'  + encodeURIComponent(id)),
+        fetch('/api/law_tree/' + encodeURIComponent(id)),
+      ]);
+      const d    = await r1.json();
+      const rel  = r2.ok ? await r2.json() : null;
+      const tree = r3.ok ? await r3.json() : null;
+      if (d.error) throw new Error(d.error);
+      renderDetail(d, rel, tree);
+
+      // sync กับ tree tab — ถ้า doc เป็น law_section ให้ส่ง section id ไป tree
+      if (d.type === 'law_section') {
+        try {
+          const treeFrames = [...window.frames].find(f => f.location?.pathname === '/tree');
+          if (treeFrames) treeFrames.postMessage({ type: 'VIEW_SECTION', sectionId: d.id }, location.origin);
+          // ถ้าเปิด /tree ในแท็บอื่น
+          if (window._treeTab && !window._treeTab.closed) {
+            window._treeTab.postMessage({ type: 'VIEW_SECTION', sectionId: d.id }, location.origin);
+          }
+        } catch(e) {}
+      }
+    } catch(e) {
+      document.getElementById('detailBody').innerHTML =
+        `<div class="error-box">${e}</div>`;
+    }
+  }
+
+  function detailGoBack() {
+    if (!detailHistory.length) return;
+    const prevId = detailHistory.pop();
+    openDetail(prevId, null, true); // _skipPush=true ไม่ push กลับเข้า stack
+  }
+
+  // ── Edit mode: แก้ไฟล์ JSON จากใน UI ────────────────────────────────────────
+  let _editRawMode = false;
+  let _editDoc = null;
+
+  function _editFieldRow(key, label, val, forceShort) {
+    const v = String(val == null ? '' : val);
+    const long = !forceShort && (v.length > 100 || v.includes('\n'));
+    const inputStyle = 'width:100%;background:#12101f;color:#e5e1f5;border:1px solid #3d2b6b;border-radius:6px;padding:8px 10px;font:inherit;font-size:.85rem;line-height:1.7';
+    const el = long
+      ? `<textarea data-editkey="${escHtml(key)}" rows="${Math.min(18, Math.max(4, Math.ceil(v.length / 90)))}" style="${inputStyle};resize:vertical">${escHtml(v)}</textarea>`
+      : `<input data-editkey="${escHtml(key)}" value="${escHtml(v)}" style="${inputStyle}">`;
+    return `<label style="display:block;margin-bottom:10px;font-size:.75rem;color:#a78bfa;font-weight:600">${escHtml(label)}<div style="margin-top:3px">${el}</div></label>`;
+  }
+
+  async function editDetail() {
+    if (!detailCurrentId) return;
+    // cloud mode (github backend) ต้อง login ก่อนถึงจะแก้ได้
+    try {
+      const me = await (await fetch('/api/me')).json();
+      if (me.edit_backend === 'github' && !me.user) {
+        if (confirm('ต้องเข้าสู่ระบบก่อนแก้ไขเอกสาร — ไปหน้า login เลยไหม?')) location.href = '/login';
+        return;
+      }
+    } catch (e) {}
+    let j;
+    try { j = await (await fetch('/api/raw/' + encodeURIComponent(detailCurrentId))).json(); }
+    catch (e) { alert('โหลดไฟล์ไม่ได้: ' + e.message); return; }
+    if (j.error) { alert(j.error); return; }
+    const d = j.doc;
+    _editDoc = d;
+    _editRawMode = false;
+
+    const LIST_OK = ['keywords', 'tax_type', 'related_sections'];
+    const SKIP = new Set(['id', 'manually_edited', 'edited_at']);
+    let rows = '';
+    for (const [k, v] of Object.entries(d)) {
+      if (SKIP.has(k)) continue;
+      if (typeof v === 'string') {
+        rows += _editFieldRow(k, k, v, k === 'type' || k === 'date' || k === 'id');
+      } else if (Array.isArray(v) && LIST_OK.includes(k) && v.every(x => typeof x === 'string')) {
+        rows += _editFieldRow(k, k + ' (คั่นด้วย ,)', v.join(', '), true);
+      } else if (k === 'content' && v && typeof v === 'object' && !Array.isArray(v)) {
+        for (const [ck, cv] of Object.entries(v)) {
+          if (typeof cv === 'string' || cv === null) rows += _editFieldRow('content.' + ck, 'content → ' + ck, cv);
+        }
+      }
+      // field โครงสร้างซับซ้อน (authorizing_law_chain ฯลฯ) → แก้ผ่านโหมด JSON ดิบ
+    }
+
+    const src = d.source_url
+      ? `<a href="${escHtml(d.source_url)}" target="_blank" style="color:#6ee7b7;text-decoration:none;border:1px solid #1d5c46;border-radius:6px;padding:5px 12px;font-size:.8rem;white-space:nowrap">🔗 เปิดต้นฉบับเทียบ</a>`
+      : `<span style="color:#8b849e;font-size:.78rem">ไฟล์นี้ไม่มี source_url</span>`;
+
+    document.getElementById('detailBody').innerHTML = `
+      <div style="background:#241c3d;border:1px solid #3d2b6b;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:.78rem;color:#c4b5fd;line-height:1.6">
+        💡 พิมพ์แก้ได้ทุกช่อง — กดบันทึกแล้วไฟล์เดิมถูกสำรองที่ <code style="color:#6ee7b7">.edit_backups/</code> เสมอ
+        และผลค้นหา (BM25 + semantic) อัปเดตทันที &nbsp;${src}
+      </div>
+      <div style="font-size:.72rem;color:#8b849e;margin-bottom:12px;word-break:break-all">📄 ${escHtml(j.fpath)}</div>
+      <div id="editFormWrap">${rows}</div>
+      <div id="editRawWrap" style="display:none">
+        <label style="display:block;font-size:.75rem;color:#a78bfa;font-weight:600;margin-bottom:4px">JSON ทั้งไฟล์ (ขั้นสูง — ห้ามเปลี่ยน id)</label>
+        <textarea id="editRawTA" rows="26" spellcheck="false" style="width:100%;background:#12101f;color:#e5e1f5;border:1px solid #3d2b6b;border-radius:6px;padding:10px;font-family:ui-monospace,Menlo,monospace;font-size:.75rem;resize:vertical">${escHtml(JSON.stringify(d, null, 2))}</textarea>
+      </div>
+      <div style="position:sticky;bottom:0;background:#1a1530;padding:12px 0;display:flex;gap:10px;align-items:center;border-top:1px solid #3d2b6b">
+        <button onclick="saveDetailEdit()" id="editSaveBtn" style="background:#059669;color:#fff;border:none;border-radius:6px;padding:9px 22px;font-size:.85rem;font-weight:700;cursor:pointer">💾 บันทึก</button>
+        <button onclick="openDetail(detailCurrentId, null, true)" style="background:none;color:#c4b5fd;border:1px solid #3d2b6b;border-radius:6px;padding:8px 14px;font-size:.78rem;cursor:pointer">ยกเลิก</button>
+        <button onclick="toggleEditRaw()" id="editRawBtn" style="background:none;color:#c4b5fd;border:1px solid #3d2b6b;border-radius:6px;padding:8px 14px;font-size:.78rem;cursor:pointer">{ } แก้ JSON ดิบ</button>
+        <span id="editStatus" style="font-size:.75rem;color:#8b849e"></span>
+      </div>`;
+  }
+
+  function toggleEditRaw() {
+    _editRawMode = !_editRawMode;
+    document.getElementById('editFormWrap').style.display = _editRawMode ? 'none' : '';
+    document.getElementById('editRawWrap').style.display = _editRawMode ? '' : 'none';
+    document.getElementById('editRawBtn').style.color = _editRawMode ? '#6ee7b7' : '#c4b5fd';
+  }
+
+  async function saveDetailEdit() {
+    const status = document.getElementById('editStatus');
+    const btn = document.getElementById('editSaveBtn');
+    let body;
+    if (_editRawMode) {
+      const raw = document.getElementById('editRawTA').value;
+      try { JSON.parse(raw); } catch (e) { status.textContent = '❌ JSON ผิด: ' + e.message; return; }
+      body = { raw };
+    } else {
+      const fields = {};
+      document.querySelectorAll('[data-editkey]').forEach(el => { fields[el.dataset.editkey] = el.value; });
+      body = { fields };
+    }
+    btn.disabled = true;
+    status.textContent = '⏳ กำลังบันทึก + อัปเดตดัชนี...';
+    try {
+      const resp = await fetch('/api/save/' + encodeURIComponent(detailCurrentId), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const r = await resp.json();
+      btn.disabled = false;
+      if (resp.status === 401) { location.href = '/login'; return; }
+      if (r.error) { status.textContent = '❌ ' + r.error; return; }
+      if (r.pr_url) {
+        status.innerHTML = '✅ บันทึกแล้ว — ส่งการแก้ไขให้เจ้าของคลังตรวจแล้ว ' +
+          '<a href="' + r.pr_url + '" target="_blank" style="color:#6ee7b7">📬 ดู Pull Request</a>' +
+          (r.warnings && r.warnings.length ? ' ⚠️ ' + escHtml(r.warnings.join(' | ')) : '');
+        setTimeout(() => openDetail(detailCurrentId, null, true), 5000);
+        return;
+      }
+      status.textContent = '✅ บันทึกแล้ว (สำรอง: ' + r.backup + ')' +
+        (r.warnings && r.warnings.length ? ' ⚠️ ' + r.warnings.join(' | ') : '');
+      setTimeout(() => openDetail(detailCurrentId, null, true), r.warnings && r.warnings.length ? 2500 : 800);
+    } catch (e) {
+      btn.disabled = false;
+      status.textContent = '❌ บันทึกไม่ได้: ' + e.message;
+    }
+  }
+
+  function renderDetail(d, rel, tree) {
+    document.getElementById('detailRef').textContent  = d.ref_number || '—';
+    document.getElementById('detailDate').textContent = d.date ? formatDate(d.date) : '—';
+
+    // ── ปุ่ม "🌳 แผนผัง" — link ไปหน้า tree ──────────────────────────────
+    const treeBtn = document.getElementById('detailTreeBtn');
+    if (d.type === 'law_section') {
+      treeBtn.href = `/tree#${d.id}`;
+      treeBtn.style.display = 'inline-block';
+    } else {
+      // หา section แรกจาก authorizing_law_chain
+      const chain = d.authorizing_law_chain || [];
+      let sectionHash = '';
+      for (const c of chain) {
+        if ((c.law || '').includes('ประมวลรัษฎากร') && (c.sections || []).length > 0) {
+          const sec = c.sections[0];
+          const num = sec.replace(/^มาตรา\s*/, '').replace(/\s*\(.*/, '').trim();
+          if (num) { sectionHash = '#section-' + num.replace(/\s+/g, '-'); break; }
+        }
+      }
+      treeBtn.href = `/tree${sectionHash}`;
+      treeBtn.style.display = sectionHash ? 'inline-block' : 'none';
+    }
+
+    // สถานะยกเลิก
+    const isRepealed = rel && rel.repealed;
+    const panel = document.getElementById('detailPanel');
+    panel.classList.toggle('is-repealed', !!isRepealed);
+
+    const c = d.content || {};
+    const taxBadges = (d.tax_type||[]).map(t => `<span class="tax-badge ${t}">${t}</span>`).join(' ');
+
+    // วันที่บังคับใช้ (อาจต่างจากวันที่ออก)
+    const effDate = d.effective_date || c['วันบังคับใช้'] || '';
+    const effDateStr = effDate && effDate !== d.date ? formatDate(effDate) : '';
+
+    // สรุปสาระสำคัญ (plain_summary ดีกว่า summary)
+    const summaryText = d.plain_summary || d.summary || '';
+
+    // เนื้อหาหลัก: รองรับทุก doc type (d.full_text = top-level สำหรับฎีกา/ข้อหารือ)
+    const bodyText = c['full_text'] || c['บทบัญญัติ'] || c['text'] || d.full_text || '';
+
+    // ── สร้าง law chain panel ─────────────────────────────────────────────
+    const docType = d.type || '';
+    let relHtml = '';
+    if (rel) {
+      // repeal alert
+      if (isRepealed) {
+        const by = (rel.repealed_by || []).map(r =>
+          `<span class="amend-list-item"><a onclick="openDetail('${r.doc_id}',null)">${escHtml(r.ref_number||r.doc_id)}</a> — ${escHtml(r.title||'')}</span>`
+        ).join('<br>');
+        relHtml += `<div class="repeal-alert"><strong>&#x274C; ยกเลิกแล้ว — ไม่มีผลบังคับใช้</strong>${by || 'ถูกยกเลิกโดยกฎหมายฉบับอื่น'}</div>`;
+      }
+      // amendment alert
+      const amended = rel.amended_by || [];
+      if (!isRepealed && amended.length > 0) {
+        const items = amended.map(a =>
+          `<span class="amend-list-item"><a onclick="openDetail('${escHtml(a.amender_id)}',null)">${escHtml(a.amender_ref||a.amender_id)}</a>${a.amender_title ? ' — ' + escHtml(a.amender_title.substring(0,60)) : ''}</span>`
+        ).join('<br>');
+        relHtml += `<div class="amend-alert"><strong>&#x26A0; ฉบับนี้ยังบังคับใช้ แต่ถูกแก้ไขเพิ่มเติมโดย</strong>${items}</div>`;
+      }
+      // law chain
+      const chain = rel.law_chain || [];
+      if (chain.length > 0) {
+        const chainItems = chain.map(c => {
+          const secBtns = (c.sections || []).map(s => {
+            const secNum = s.replace(/^มาตรา\s*/, '').replace(/\s*\(.*/, '').trim();
+            const treeHref = secNum ? `/tree#section-${secNum.replace(/\s+/g,'-')}` : '';
+            const treeIcon = treeHref
+              ? `<a href="${treeHref}" target="_blank" title="ดูในแผนผัง" style="color:#a78bfa;text-decoration:none;font-size:.8em;margin-left:3px">🌳</a>`
+              : '';
+            return `<span style="display:inline-flex;align-items:center;gap:2px"><button class="law-chain-sec" onclick="searchTerm('${escHtml(s)}')" title="ค้นหา ${escHtml(s)}">${escHtml(s)}</button>${treeIcon}</span>`;
+          }).join('');
+          return `<div class="law-chain-item">
+            <span class="law-chain-law" onclick="browseByLaw('${escHtml(c.law)}',1)" title="ดูกฎหมายทั้งหมดที่อ้างอิง ${escHtml(c.law)}">${escHtml(c.law)}</span>
+            ${secBtns ? `<div class="law-chain-sections">${secBtns}</div>` : ''}
+            ${c.relationship ? `<span class="law-chain-rel">${escHtml(c.relationship)}</span>` : ''}
+          </div>`;
+        }).join('');
+        relHtml += `<div class="law-chain-panel"><h4>&#x26D3; อาศัยอำนาจตามกฎหมาย</h4>${chainItems}</div>`;
+      }
+      // child laws / related laws panel
+      const children = rel.child_laws || [];
+      const isRuling = (docType === 'ruling');
+      if (children.length > 0) {
+        const MAX_PER_TYPE = 8;
+        const TYPE_LABELS = {
+          'law_section': 'ประมวลรัษฎากร', 'royal_decree': 'พระราชกฤษฎีกา',
+          'ministerial_regulation': 'กฎกระทรวง', 'ministry_notification': 'ประกาศกระทรวงการคลัง',
+          'director_general_notification': 'ประกาศอธิบดี', 'notification': 'ประกาศอธิบดี',
+          'department_notification': 'ประกาศกรมสรรพากร', 'department_order': 'คำสั่งกรมสรรพากร',
+          'committee_ruling': 'คำวินิจฉัยคณะกรรมการ', 'court_judgment': 'คำพิพากษาศาล',
+          'ruling': 'ข้อหารือ',
+        };
+        const TYPE_ORDER = ['royal_decree','ministerial_regulation','ministry_notification',
+          'director_general_notification','notification','department_notification','department_order',
+          'committee_ruling','court_judgment','ruling'];
+        const grouped = {};
+        children.forEach(c => {
+          const t = c.doc_type || 'other';
+          if (!grouped[t]) grouped[t] = [];
+          grouped[t].push(c);
+        });
+        // _childItem: render one row; for rulings show shared_secs badge
+        const _childItem = c => {
+          const secsHtml = (isRuling && c.shared_secs)
+            ? `<span class="shared-secs-badge" title="มาตราร่วม">${escHtml(c.shared_secs.split(',').slice(0,2).join(', '))}${c.shared_secs.split(',').length > 2 ? '…' : ''}</span>`
+            : '';
+          return `<div class="child-law-item${c.repealed ? ' child-law-repealed' : ''}" onclick="openDetail('${escHtml(c.doc_id)}',null)">
+            <span class="child-law-ref">${escHtml(c.ref || c.doc_id)}</span>
+            <span class="child-law-title">${escHtml((c.title||'').substring(0,60))}</span>
+            ${secsHtml}
+            ${c.year ? `<span class="child-law-year">${c.year}</span>` : ''}
+          </div>`;
+        };
+        const groupHtml = TYPE_ORDER.filter(t => grouped[t])
+          .concat(Object.keys(grouped).filter(t => !TYPE_ORDER.includes(t)))
+          .map(t => {
+            const items = grouped[t];
+            const label = TYPE_LABELS[t] || t;
+            const shown = items.slice(0, MAX_PER_TYPE);
+            const hidden = items.slice(MAX_PER_TYPE);
+            const uid = 'cg-' + Math.random().toString(36).slice(2,8);
+            const moreHtml = hidden.length > 0
+              ? `<div id="${uid}" style="display:none">${hidden.map(_childItem).join('')}</div>
+                 <div class="child-laws-more" onclick="document.getElementById('${uid}').style.display='block';this.style.display='none'">▾ ดูทั้งหมด ${items.length} ฉบับ</div>`
+              : '';
+            return `<div class="child-laws-group">
+              <div class="child-laws-group-label">${escHtml(label)} (${items.length})</div>
+              ${shown.map(_childItem).join('')}${moreHtml}
+            </div>`;
+          }).join('');
+        const panelTitle = isRuling
+          ? `&#x2696; กฎหมายที่เกี่ยวข้อง — อ้างมาตราเดียวกัน (${children.length} ฉบับ)`
+          : `&#x1F4C2; กฎหมายลูก — อ้างอิงมาตรานี้ (${children.length} ฉบับ)`;
+        relHtml += `<div class="child-laws-panel"><h4>${panelTitle}</h4>${groupHtml}</div>`;
+      }
+
+      // related_rulings: ข้อหารือที่อ้างมาตราเดียวกัน (สำหรับ กฎหมายลูก ทุกประเภท)
+      const rrulings = rel.related_rulings || [];
+      if (rrulings.length > 0) {
+        const MAX_RR = 10;
+        const rrItems = rrulings.slice(0, MAX_RR);
+        const rrHidden = rrulings.slice(MAX_RR);
+        const _rrItem = r => {
+          const secsHtml = r.shared_secs
+            ? `<span class="shared-secs-badge" title="มาตราร่วม">${escHtml(r.shared_secs.split(',').slice(0,2).join(', '))}${r.shared_secs.split(',').length > 2 ? '…' : ''}</span>`
+            : '';
+          return `<div class="ruling-link-item" onclick="openDetail('${escHtml(r.id)}',null)">
+            <span class="ruling-link-ref">${escHtml(r.ref_number || r.id)}</span>
+            <span class="ruling-link-title">${escHtml((r.title||'').substring(0,60))}</span>
+            ${secsHtml}
+            ${r.year ? `<span class="ruling-link-year">${r.year}</span>` : ''}
+          </div>`;
+        };
+        const uid2 = 'rr-' + Math.random().toString(36).slice(2,8);
+        const moreHtml2 = rrHidden.length > 0
+          ? `<div id="${uid2}" style="display:none">${rrHidden.map(_rrItem).join('')}</div>
+             <div class="child-laws-more" onclick="document.getElementById('${uid2}').style.display='block';this.style.display='none'">▾ ดูทั้งหมด ${rrulings.length} ฉบับ</div>`
+          : '';
+        relHtml += `<div class="related-rulings-panel">
+          <h4>&#x1F4CB; ข้อหารือที่เกี่ยวข้อง (${rrulings.length} ฉบับ)</h4>
+          ${rrItems.map(_rrItem).join('')}${moreHtml2}
+        </div>`;
+      }
+      // amends/repeals others
+      if ((rel.amends||[]).length > 0) {
+        const items = rel.amends.map(a =>
+          `<a onclick="openDetail('${escHtml(a.id)}',null)" style="cursor:pointer;color:#B45309;text-decoration:underline">${escHtml(a.ref_number||a.id)}</a>`
+        ).join(', ');
+        relHtml += `<div style="margin-bottom:10px;padding:8px 12px;background:#FFFBEB;border:1px solid #FCD34D;border-radius:6px;font-size:12px;color:#92400E"><strong>แก้ไขเพิ่มเติม:</strong> ${items} (ฉบับนั้นยังบังคับใช้)</div>`;
+      }
+      if ((rel.repeals||[]).length > 0) {
+        const items = rel.repeals.map(a =>
+          `<a onclick="openDetail('${escHtml(a.id)}',null)" style="cursor:pointer;color:#9F1239;text-decoration:underline">${escHtml(a.ref_number||a.id)}</a>`
+        ).join(', ');
+        relHtml += `<div style="margin-bottom:10px;padding:8px 12px;background:#FFF1F2;border:1px solid #FECDD3;border-radius:6px;font-size:12px;color:#9F1239"><strong>ยกเลิกทั้งฉบับ:</strong> ${items}</div>`;
+      }
+    }
+
+    const treeHtml = renderLawTree(tree);
+
+    document.getElementById('detailBody').innerHTML = `
+      <h2 class="detail-title">${escHtml(d.title||'')}</h2>
+      <div class="detail-meta">
+        <div class="detail-meta-item"><label>เลขที่</label><span>${escHtml(d.ref_number||'—')}</span></div>
+        <div class="detail-meta-item"><label>วันที่ประกาศ</label><span>${d.date ? formatDate(d.date) : '—'}</span></div>
+        ${effDateStr ? `<div class="detail-meta-item"><label>วันบังคับใช้</label><span>${escHtml(effDateStr)}</span></div>` : ''}
+        <div class="detail-meta-item"><label>ประเภทภาษี</label><span>${taxBadges||'—'}</span></div>
+        ${d.ref_cabinet_number ? `<div class="detail-meta-item"><label>เลขตู้</label><span>${escHtml(d.ref_cabinet_number)}</span></div>` : ''}
+      </div>
+      ${treeHtml}
+      ${relHtml}
+      ${summaryText ? `<div class="detail-summary-box"><strong>สรุปสาระสำคัญ</strong><p>${escHtml(summaryText)}</p></div>` : ''}
+      ${d.why_issued ? `<div class="detail-summary-box" style="background:#FFF7ED;border-color:#F59E0B"><strong>เหตุผลที่ออก</strong><p>${escHtml(d.why_issued)}</p></div>` : ''}
+      ${section('อาศัยอำนาจตามกฎหมาย', c['อาศัยอำนาจตาม'])}
+      ${section('เนื้อหา', bodyText)}
+      ${section('คำอธิบาย', c['explanation'])}
+      ${section('ข้อเท็จจริง / ข้อหารือ', c['ข้อเท็จจริง'] || d.facts)}
+      ${section('ประเด็น', c['ประเด็นที่หารือ'] || c['ประเด็น'])}
+      ${section('แนววินิจฉัย / คำพิพากษา', c['แนววินิจฉัย'] || c['คำวินิจฉัย'] || d.ruling)}
+      ${section('เหตุผล', c['เหตุผล'])}
+      ${section('หลักการสำคัญ', c['หลักการสำคัญ'] || d.key_principle)}
+      ${d.source_url ? `
+      <a class="detail-link" href="${d.source_url}" target="_blank" rel="noopener">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+          <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+        </svg>
+        ดูต้นฉบับบนเว็บไซต์กรมสรรพากร
+      </a>` : ''}`;
+  }
+
+  function renderLawTree(tree) {
+    if (!tree || !tree.nodes || tree.nodes.length === 0) return '';
+    const TYPE_BADGE = {
+      'royal_decree': 'rd', 'ministerial_regulation': 'mr',
+      'ministry_notification': 'mn', 'ministry_order': 'mn',
+      'director_general_notification': 'dg', 'notification': 'dg',
+      'department_notification': 'do', 'department_order': 'do',
+    };
+    const TYPE_SHORT = {
+      'royal_decree': 'พ.ร.ฎ.', 'ministerial_regulation': 'กฎกระทรวง',
+      'ministry_notification': 'ประกาศคลัง', 'ministry_order': 'ประกาศคลัง',
+      'director_general_notification': 'ประกาศอธิบดี', 'notification': 'ประกาศอธิบดี',
+      'department_notification': 'ประกาศกรมฯ', 'department_order': 'คำสั่งกรมฯ',
+    };
+    const nodesHtml = tree.nodes.map(node => {
+      const secId = node.section_id;
+      const secClick = secId
+        ? `onclick="openDetail('${escHtml(secId)}',null)"`
+        : `onclick="searchTerm('${escHtml(node.section)}')"`;
+      const sectionHtml = `<div class="law-tree-section" ${secClick}>
+        <span class="law-tree-section-badge">ม.</span>
+        <span class="law-tree-section-title">${escHtml(node.section_title || node.section)}</span>
+      </div>`;
+      const childrenHtml = node.child_laws.map(c => {
+        const bk = TYPE_BADGE[c.doc_type] || 'ot';
+        const label = TYPE_SHORT[c.doc_type] || c.doc_type || '—';
+        const currentBadge = c.is_current
+          ? `<span class="law-tree-current-badge">◄ เอกสารนี้</span>` : '';
+        const repealedStyle = c.repealed ? ' style="opacity:.5;text-decoration:line-through"' : '';
+        return `<div class="law-tree-child${c.is_current ? ' is-current' : ''}" onclick="openDetail('${escHtml(c.id)}',null)"${repealedStyle}>
+          <span class="law-tree-type-badge ${bk}">${escHtml(label)}</span>
+          <span class="law-tree-child-ref">${escHtml(c.ref || c.id)}</span>
+          <span class="law-tree-child-title">${escHtml(c.title)}</span>
+          ${c.year ? `<span class="law-tree-child-year">${c.year}</span>` : ''}
+          ${currentBadge}
+        </div>`;
+      }).join('');
+      const rulingRow = node.ruling_count > 0
+        ? `<div class="law-tree-ruling-row" onclick="searchTerm('${escHtml(node.section)}')">
+            &#x1F4CB; ข้อหารือในมาตรานี้: ${node.ruling_count} ฉบับ →
+           </div>`
+        : '';
+      return `<div class="law-tree-node">
+        ${sectionHtml}
+        <div class="law-tree-children">${childrenHtml}${rulingRow}</div>
+      </div>`;
+    }).join('');
+    return `<div class="law-tree-panel">
+      <h4>&#x1F333; ลำดับกฎหมายตามประมวลรัษฎากร</h4>
+      ${nodesHtml}
+    </div>`;
+  }
+
+  function searchTerm(q) {
+    document.getElementById('searchInput').value = q;
+    closeDetail();
+    doSearch(1);
+  }
+
+  function section(label, text) {
+    if (!text) return '';
+    if (typeof text === 'object') {
+      text = Object.values(text).filter(Boolean).join('\n\n');
+    }
+    if (!text.trim()) return '';
+    return `<div class="detail-section"><h4>${label}</h4><p>${escHtml(text)}</p></div>`;
+  }
+
+  function closeDetail() {
+    document.getElementById('detailOverlay').classList.remove('open');
+    document.getElementById('detailPanel').classList.remove('open');
+    if (activeCard) { activeCard.classList.remove('active'); activeCard = null; }
+    detailHistory = [];
+    detailCurrentId = null;
+    _updateBackBtn();
+  }
+
+  // ── Browse By Law ─────────────────────────────────────────────
+  let currentBrowseLaw = '';
+
+  async function browseByLaw(lawName, page = 1) {
+    closeDetail();
+    currentBrowseLaw = lawName;
+    showLoading('กำลังโหลด…');
+    document.getElementById('pagination').style.display = 'none';
+    try {
+      const params = new URLSearchParams({ law: lawName, page });
+      const r = await fetch('/api/by_law?' + params);
+      const d = await r.json();
+      renderBrowseResults(d, lawName, page);
+    } catch(e) { showError('เกิดข้อผิดพลาด: ' + e); }
+  }
+
+  function renderBrowseResults(d, lawName, page) {
+    const { results = [], total = 0, per_page = 20, sort_mode, doc_type: browseDocTypeName } = d;
+    const totalPages = Math.ceil(total / per_page);
+    const sortLabel = sort_mode === 'section' ? 'เรียงตามมาตรา' : 'เรียงจากเก่าไปใหม่';
+
+    const header = `<div style="padding:10px 14px 8px;background:#F0FDF4;border-bottom:1px solid #BBF7D0;font-size:12px;color:#166534">
+      <strong>📚 ${escHtml(lawName)}</strong>
+      <span style="margin-left:8px;color:#6B7280">${total} รายการ · ${sortLabel}</span>
+      <button onclick="clearBrowse()" style="float:right;background:none;border:none;cursor:pointer;font-size:12px;color:#6B7280">✕ ปิด</button>
+    </div>`;
+
+    if (!results.length) {
+      document.getElementById('resultsList').innerHTML = header +
+        '<div style="padding:24px;text-align:center;color:#9CA3AF">ไม่พบเอกสารที่อ้างอิงกฎหมายนี้</div>';
+      return;
+    }
+
+    const cards = results.map((r, i) => {
+      const rank = (page - 1) * per_page + i + 1;
+      const typeLabel = DOC_TYPE_LABELS[r.doc_type] || r.doc_type || '';
+      return `
+        <div class="result-card" id="card-${r.id}" onclick="openDetail('${r.id}', this)">
+          <div class="card-header">
+            <span class="card-rank">${rank}</span>
+            <span class="card-ref">${escHtml(r.ref_number || r.id)}</span>
+            <span class="card-year">${r.year ? r.year + ' พ.ศ.' : ''}</span>
+            <button class="copy-btn" onclick="copyRef(event,'${escHtml(r.ref_number||'')}','${escHtml(r.date||'')}')">📋 คัดลอก</button>
+          </div>
+          <div class="card-title">${escHtml(r.title || '')}</div>
+          <div class="card-footer">
+            ${typeLabel ? `<span class="tax-badge" style="background:#F0FDF4;color:#166534;border-color:#BBF7D0">${typeLabel}</span>` : ''}
+            ${(r.tax_type||[]).map(t => `<span class="tax-badge ${t}">${t}</span>`).join('')}
+            ${r.repealed ? `<span class="status-badge repealed">&#x274C; ยกเลิกแล้ว</span>` : ''}
+            ${!r.repealed && r.has_amendment ? `<span class="status-badge amended">&#x26A0; ถูกแก้ไข</span>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+
+    document.getElementById('resultsList').innerHTML = header + cards;
+
+    if (totalPages > 1) {
+      const goPage = browseDocTypeName
+        ? `browseDocType('${escHtml(browseDocTypeName)}',`
+        : `browseByLaw('${escHtml(lawName)}',`;
+      let html = `<button class="page-btn" onclick="${goPage}${page-1})" ${page===1?'disabled':''}>‹</button>`;
+      let pages = new Set([1, totalPages]);
+      for (let p = page-2; p <= page+2; p++) { if (p > 0 && p <= totalPages) pages.add(p); }
+      pages = [...pages].sort((a,b) => a-b);
+      let prev = 0;
+      for (const p of pages) {
+        if (p - prev > 1) html += `<span style="color:var(--gray-400);padding:0 4px">…</span>`;
+        html += `<button class="page-btn ${p===page?'active':''}" onclick="${goPage}${p})">${p}</button>`;
+        prev = p;
+      }
+      html += `<button class="page-btn" onclick="${goPage}${page+1})" ${page===totalPages?'disabled':''}>›</button>`;
+      document.getElementById('pagination').innerHTML = html;
+      document.getElementById('pagination').style.display = 'flex';
+    } else {
+      document.getElementById('pagination').style.display = 'none';
+    }
+  }
+
+  function clearBrowse() {
+    currentBrowseLaw = '';
+    // reset doc type chip ไปที่ "ทั้งหมด"
+    document.querySelectorAll('#docTypeChips .chip').forEach(c => c.classList.remove('active'));
+    document.querySelector('.chip[data-doctype=""]').classList.add('active');
+    currentDocType = '';
+    if (currentQuery) doSearch(currentPage);
+    else document.getElementById('resultsList').innerHTML = '';
+    document.getElementById('pagination').style.display = 'none';
+  }
+
+  // ── Filters ───────────────────────────────────────────────────
+  function setTax(el) {
+    document.querySelectorAll('#filterSection .chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    currentTax = el.dataset.tax;
+    if (currentQuery) doSearch(1);
+  }
+
+  function setDocType(el) {
+    document.querySelectorAll('#docTypeChips .chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    currentDocType = el.dataset.doctype;
+    if (currentDocType === 'law_section') {
+      browseByLaw('ประมวลรัษฎากร', 1);
+    } else if (currentDocType && !currentQuery) {
+      browseDocType(currentDocType, 1);
+    } else if (currentQuery) {
+      doSearch(1);
+    }
+  }
+
+  async function browseDocType(docType, page = 1) {
+    closeDetail();
+    showLoading('กำลังโหลด…');
+    document.getElementById('pagination').style.display = 'none';
+    try {
+      const params = new URLSearchParams({ doc_type: docType, page });
+      const r = await fetch('/api/all_docs?' + params);
+      const d = await r.json();
+      const label = DOC_TYPE_LABELS[docType] || docType;
+      renderBrowseResults({ ...d, law: label, sort_mode: 'date' }, label, page);
+    } catch(e) { showError('เกิดข้อผิดพลาด: ' + e); }
+  }
+
+  function clearAll() {
+    currentResultsData = null;
+    document.getElementById('exportWrap').classList.remove('visible');
+    history.replaceState({}, '', location.pathname);
+    document.getElementById('searchInput').value = '';
+    document.getElementById('yearMin').value = '';
+    document.getElementById('yearMax').value = '';
+    currentQuery = currentTax = currentDocType = currentYearMin = currentYearMax = '';
+    currentPage  = 1;
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    document.querySelector('.chip[data-tax=""]').classList.add('active');
+    document.querySelector('.chip[data-doctype=""]').classList.add('active');
+    document.getElementById('aiSummaryBox').classList.remove('visible');
+    document.getElementById('resultsList').innerHTML = `
+      <div class="empty-state">
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        <p>ค้นหาข้อหารือที่ต้องการ</p>
+      </div>`;
+    document.getElementById('resultsCount').textContent = 'พิมพ์คำค้นหาแล้วกด Enter';
+    document.getElementById('tokenList').innerHTML = '';
+    document.getElementById('pagination').style.display = 'none';
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────
+  function escHtml(s) {
+    return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '—';
+    const [y,m,d] = iso.split('-');
+    const months  = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    return `${parseInt(d)} ${months[parseInt(m)||0]} ${parseInt(y)+543}`;
+  }
+
+  // ── Keyboard ──────────────────────────────────────────────────
+  document.getElementById('searchInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doSearch(1);
+    if (e.key === 'Escape') closeDetail();
+  });
+  document.getElementById('apiKeyInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doSearch(1);
+  });
+  document.getElementById('chatInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendChat();
+    }
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeDetail();
+  });
+
+  // ── Feature 5: บันทึก model ที่เลือก ─────────────────────────
+  document.getElementById('modelSelect').addEventListener('change', function() {
+    localStorage.setItem('tax_selected_model', this.value);
+    onModelChange();
+  });
+
+  // ── Feature 4: URL parameters ────────────────────────────────
+  function updateUrl() {
+    const p = new URLSearchParams();
+    if (currentQuery) p.set('q', currentQuery);
+    if (currentMode && currentMode !== 'bm25') p.set('mode', currentMode);
+    if (currentTax) p.set('tax', currentTax);
+    if (currentYearMin) p.set('ymin', currentYearMin);
+    if (currentYearMax) p.set('ymax', currentYearMax);
+    const str = p.toString();
+    history.replaceState({}, '', str ? '?' + str : location.pathname);
+  }
+
+  function initFromUrl() {
+    const p    = new URLSearchParams(location.search);
+    // รับ ?doc= จาก tree tab — เปิด detail popup ทันที
+    const docId = p.get('doc');
+    if (docId) { setTimeout(() => openDetail(docId, null), 300); return; }
+    // รับ ?section_ref= จาก tree tab — ค้นหาเอกสารที่อ้างอิงมาตรานั้น
+    const sectionRef = p.get('section_ref');
+    if (sectionRef) {
+      currentSectionRef = sectionRef;
+      document.getElementById('searchInput').value = sectionRef;
+      execSectionSearch(sectionRef, 1);
+      return;
+    }
+    const q    = p.get('q');
+    const mode = p.get('mode');
+    const tax  = p.get('tax');
+    const ymin = p.get('ymin');
+    const ymax = p.get('ymax');
+    if (!q) return;
+    if (mode && ['bm25','ai','answer','semantic','hybrid'].includes(mode)) setMode(mode);
+    document.getElementById('searchInput').value = q;
+    currentQuery = q;
+    if (tax) {
+      currentTax = tax;
+      document.querySelectorAll('.chip').forEach(c =>
+        c.classList.toggle('active', c.dataset.tax === tax));
+    }
+    if (ymin) { currentYearMin = ymin; document.getElementById('yearMin').value = ymin; }
+    if (ymax) { currentYearMax = ymax; document.getElementById('yearMax').value = ymax; }
+    if (currentMode !== 'chat') doSearch(1);
+  }
+
+  // ── Feature 2: Token estimator ───────────────────────────────
+  function updateTokenEstimate() {
+    const row = document.getElementById('tokenEstimateRow');
+    if (!['ai', 'answer', 'chat'].includes(currentMode)) { row.style.display = 'none'; return; }
+    const q = document.getElementById('searchInput').value || document.getElementById('chatInput').value || '';
+    if (!q) { row.style.display = 'none'; return; }
+    const qTok  = Math.ceil(q.length / 2);
+    const overhead = currentMode === 'answer' ? 11000 : currentMode === 'chat' ? 2000 : 5000;
+    document.getElementById('tokenEstimateText').textContent =
+      `ประมาณ ~${(qTok + overhead).toLocaleString()} tokens`;
+    row.style.display = 'block';
+  }
+  document.getElementById('searchInput').addEventListener('input', updateTokenEstimate);
+  document.getElementById('chatInput').addEventListener('input', updateTokenEstimate);
+
+  // ── Feature 3: Export results ────────────────────────────────
+  function toggleExportDropdown(e) {
+    e && e.stopPropagation();
+    document.getElementById('exportDropdown').classList.toggle('open');
+  }
+  document.addEventListener('click', () => {
+    document.getElementById('exportDropdown')?.classList.remove('open');
+  });
+
+  function exportCSV() {
+    document.getElementById('exportDropdown').classList.remove('open');
+    const rows = (currentResultsData?.results) || [];
+    if (!rows.length) return;
+    const bom = '﻿';
+    const headers = ['เลขที่', 'ชื่อเรื่อง', 'ปี', 'ประเภทภาษี', 'ความเกี่ยวข้อง/เนื้อหา'];
+    const esc = s => '"' + (s||'').replace(/"/g,'""').replace(/\n/g,' ') + '"';
+    const csv = [headers.join(','),
+      ...rows.map(r => [
+        esc(r.ref_number), esc(r.title), r.year||'',
+        esc((r.tax_type||[]).join('/')),
+        esc((r.relevance||r.snippet||'').substring(0,250)),
+      ].join(','))
+    ].join('\n');
+    const now = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    _downloadBlob(new Blob([bom+csv],{type:'text/csv;charset=utf-8'}),
+      `ข้อหารือ_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.csv`);
+  }
+
+  function exportHTML() {
+    document.getElementById('exportDropdown').classList.remove('open');
+    const d    = currentResultsData;
+    if (!d) return;
+    const rows = d.results || [];
+    const q    = d.q || currentQuery || '';
+    const now  = new Date();
+    const by   = now.getFullYear() + 543;
+    const thM  = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+    const ds   = `${now.getDate()} ${thM[now.getMonth()]} ${by}`;
+    const pad  = n => String(n).padStart(2,'0');
+
+    const answerBlock = d.answer ? `
+      <div class="ai-answer"><div class="ai-answer-label">💬 คำตอบจาก AI</div>
+      <div class="ai-answer-text">${escHtml(d.answer)}</div></div>` : '';
+
+    const summaryBlock = d.ai_summary ? `
+      <div class="ai-summary"><b>🤖 สรุป:</b> ${escHtml(d.ai_summary)}</div>` : '';
+
+    const cardsHtml = rows.map((r,i) => `
+      <div class="ruling-card">
+        <div class="ruling-header">
+          <span class="rnum">${i+1}</span>
+          <span class="rref">${escHtml(r.ref_number||'')}</span>
+          <span class="ryear">${r.year ? r.year+' พ.ศ.' : ''}</span>
+          ${(r.tax_type||[]).map(t=>`<span class="ttag">${t}</span>`).join('')}
+        </div>
+        <div class="rtitle">${escHtml(r.title||'')}</div>
+        ${r.relevance ? `<div class="relevance">🤖 ${escHtml(r.relevance)}</div>` : ''}
+        ${r.snippet ? `<div class="rsnippet">${escHtml((r.snippet||'').replace(/<[^>]*>/g,'').substring(0,300))}</div>` : ''}
+        ${r.source_url ? `<a href="${escHtml(r.source_url)}" class="rlink" target="_blank">ดูต้นฉบับ ↗</a>` : ''}
+      </div>`).join('');
+
+    const html = `<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8">
+<title>ผลการค้นหา — ${escHtml(q)}</title><style>
+body{font-family:'Segoe UI','Noto Sans Thai',Arial,sans-serif;max-width:860px;margin:0 auto;padding:32px 24px 60px;font-size:14px;line-height:1.6;color:#0F172A;background:#F8FAFC;}
+h1{font-size:20px;color:#0F2A5C;margin:0 0 4px;}
+.meta{font-size:12px;color:#64748B;margin-bottom:20px;}
+.ai-answer{background:#F0FDFA;border:1.5px solid #99F6E4;border-radius:8px;padding:14px 16px;margin-bottom:16px;}
+.ai-answer-label{font-size:11px;font-weight:700;color:#0F766E;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;}
+.ai-answer-text{font-size:13px;color:#134E4A;line-height:1.85;white-space:pre-wrap;}
+.ai-summary{background:#EDE9FE;border-left:3px solid #7C3AED;border-radius:0 6px 6px 0;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#3730A3;}
+.ruling-card{background:#fff;border:1px solid #E2E8F0;border-radius:8px;padding:14px 16px;margin-bottom:10px;break-inside:avoid;}
+.ruling-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;}
+.rnum{font-size:11px;background:#F1F5F9;color:#64748B;padding:2px 6px;border-radius:4px;font-weight:600;}
+.rref{font-family:monospace;font-size:12px;font-weight:700;color:#1D4ED8;}
+.ryear{font-size:11px;color:#94A3B8;margin-left:auto;}
+.ttag{font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE;}
+.rtitle{font-size:13px;font-weight:600;color:#0F172A;margin-bottom:6px;}
+.relevance{background:#F5F3FF;border-left:3px solid #8B5CF6;padding:6px 10px;font-size:12px;color:#4C1D95;margin-bottom:6px;border-radius:0 4px 4px 0;}
+.rsnippet{font-size:12px;color:#64748B;line-height:1.7;}
+.rlink{font-size:11px;color:#1D4ED8;text-decoration:none;margin-top:6px;display:inline-block;}
+.rlink:hover{text-decoration:underline;}
+.footer{margin-top:40px;padding-top:12px;border-top:1px solid #E2E8F0;font-size:11px;color:#94A3B8;display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;}
+@media print{body{background:#fff;padding:20px;} .ruling-card{border:1px solid #CBD5E1;}}
+</style></head><body>
+<h1>ผลการค้นหาข้อหารือภาษีอากร</h1>
+<div class="meta">คำค้นหา: <b>${escHtml(q)}</b> &nbsp;|&nbsp; พบ ${rows.length} รายการ &nbsp;|&nbsp; ${ds}</div>
+${answerBlock}${summaryBlock}${cardsHtml}
+<div class="footer"><span>ข้อมูลจากกรมสรรพากร ปี 2540–2569</span><span>ใช้เป็นข้อมูลอ้างอิงเบื้องต้นเท่านั้น</span></div>
+</body></html>`;
+    _downloadBlob(new Blob([html],{type:'text/html;charset=utf-8'}),
+      `ข้อหารือ_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.html`);
+  }
+
+  function _downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // ── Feature 1: Settings Panel ────────────────────────────────
+  function openSettings() {
+    const providers = ['deepseek','google','groq','mistral','anthropic'];
+    providers.forEach(prov => {
+      const el  = document.getElementById('skey_' + prov);
+      const dot = document.getElementById('sdot_' + prov);
+      if (el)  el.value = loadApiKey(prov);
+      if (dot) dot.classList.toggle('saved', !!loadApiKey(prov));
+    });
+    const tav    = document.getElementById('skey_tavily');
+    const tavDot = document.getElementById('sdot_tavily');
+    if (tav)    tav.value = loadTavilyKey();
+    if (tavDot) tavDot.classList.toggle('saved', !!loadTavilyKey());
+    document.getElementById('settingsSavedMsg').style.display = 'none';
+    document.getElementById('settingsOverlay').classList.add('open');
+    document.getElementById('settingsPanel').classList.add('open');
+  }
+
+  function closeSettings() {
+    document.getElementById('settingsOverlay').classList.remove('open');
+    document.getElementById('settingsPanel').classList.remove('open');
+  }
+
+  function saveAllSettings() {
+    ['deepseek','google','groq','mistral','anthropic'].forEach(prov => {
+      const el  = document.getElementById('skey_' + prov);
+      const dot = document.getElementById('sdot_' + prov);
+      if (el) saveApiKey(prov, el.value.trim());
+      if (dot) dot.classList.toggle('saved', !!el?.value.trim());
+    });
+    const tav = document.getElementById('skey_tavily');
+    if (tav) saveTavilyKey(tav.value.trim());
+    const tavDot = document.getElementById('sdot_tavily');
+    if (tavDot) tavDot.classList.toggle('saved', !!tav?.value.trim());
+
+    // Reload สิ่งที่แสดงใน sidebar
+    const model = document.getElementById('modelSelect').value;
+    const info  = MODEL_INFO[model] || {};
+    const saved = loadApiKey(info.provider || '');
+    document.getElementById('apiKeyInput').value = saved;
+    setKeySavedUI(!!saved);
+    const savedTav = loadTavilyKey();
+    document.getElementById('tavilyKeyInput').value = savedTav;
+    setTavSavedUI(!!savedTav);
+
+    const msg = document.getElementById('settingsSavedMsg');
+    msg.style.display = 'block';
+    setTimeout(() => { msg.style.display = 'none'; }, 2500);
+  }
+
+  function toggleSettingsEye(provider) {
+    const inp = document.getElementById('skey_' + provider);
+    const btn = document.getElementById('seye_' + provider);
+    if (!inp) return;
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+    if (btn) btn.textContent = inp.type === 'password' ? '👁' : '🙈';
+  }
+
+  // ── Auto-save API keys ────────────────────────────────────────
+  let _apiSaveTimer = null;
+  document.getElementById('apiKeyInput').addEventListener('input', () => {
+    clearTimeout(_apiSaveTimer);
+    _apiSaveTimer = setTimeout(() => {
+      const model = document.getElementById('modelSelect').value;
+      const info  = MODEL_INFO[model] || {};
+      const key   = document.getElementById('apiKeyInput').value.trim();
+      saveApiKey(info.provider || '', key);
+      setKeySavedUI(!!key);
+    }, 700);
+  });
+
+  let _tavSaveTimer = null;
+  document.getElementById('tavilyKeyInput').addEventListener('input', () => {
+    clearTimeout(_tavSaveTimer);
+    _tavSaveTimer = setTimeout(() => {
+      const key = document.getElementById('tavilyKeyInput').value.trim();
+      saveTavilyKey(key);
+      setTavSavedUI(!!key);
+    }, 700);
+  });
+
+  // ── Init ──────────────────────────────────────────────────────
+  // โหลด model ที่เลือกล่าสุด (Feature 5)
+  (function initSelectedModel() {
+    const saved = localStorage.getItem('tax_selected_model');
+    const sel = document.getElementById('modelSelect');
+    if (saved && Array.from(sel.options).some(o => o.value === saved)) {
+      sel.value = saved;
+    }
+  })();
+
+  // โหลด key ที่บันทึกไว้เมื่อเปิดแอป (Feature 1/prev)
+  (function initSavedKeys() {
+    const model = document.getElementById('modelSelect').value;
+    const info  = MODEL_INFO[model] || {};
+    const saved = loadApiKey(info.provider || '');
+    if (saved) {
+      document.getElementById('apiKeyInput').value = saved;
+      setKeySavedUI(true);
+    }
+    const savedTav = loadTavilyKey();
+    if (savedTav) {
+      document.getElementById('tavilyKeyInput').value = savedTav;
+      setTavSavedUI(true);
+    }
+  })();
+
+  loadStats();
+  initFromUrl(); // Feature 4: อ่าน URL params แล้วค้นหาทันที
+
+  // ── Ollama Smart Search ─────────────────────────────────────────
+  async function checkOllamaStatus() {
+    try {
+      const r = await fetch('/api/ollama_status');
+      const d = await r.json();
+      const dot = document.getElementById('ollamaDot');
+      const txt = document.getElementById('ollamaStatusText');
+      const btn = document.getElementById('ollamaBtn');
+      const semBtn = document.getElementById('btnSemantic');
+      const hybBtn = document.getElementById('btnHybrid');
+      if (d.running) {
+        dot.className = 'ollama-dot on';
+        txt.textContent = `Ollama พร้อม (${d.model})`;
+        btn.disabled = false;
+        if (semBtn) semBtn.disabled = false;
+        if (hybBtn) hybBtn.disabled = false;
+      } else {
+        dot.className = 'ollama-dot off';
+        txt.textContent = 'Ollama ไม่ได้รัน — เปิด Ollama.app ก่อน';
+        btn.disabled = true;
+        if (semBtn) { semBtn.disabled = true; semBtn.title = 'Vector Search ต้องการ Ollama — เปิด Ollama.app ก่อน'; }
+        if (hybBtn) { hybBtn.disabled = true; hybBtn.title = 'Hybrid Search ต้องการ Ollama — เปิด Ollama.app ก่อน'; }
+      }
+    } catch(e) {
+      document.getElementById('ollamaStatusText').textContent = 'ตรวจ Ollama ไม่ได้';
+    }
+  }
+
+  async function doSmartSearch() {
+    const q = document.getElementById('searchInput').value.trim();
+    if (!q) { alert('กรุณาพิมพ์คำถามก่อน'); return; }
+
+    const btn = document.getElementById('ollamaBtn');
+    const kwWrap = document.getElementById('ollamaKwWrap');
+    btn.disabled = true;
+    btn.textContent = '⏳ สกัดคำ...';
+    kwWrap.style.display = 'none';
+
+    try {
+      const r = await fetch('/api/expand_query', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({q})
+      });
+      const d = await r.json();
+      if (d.error) { alert(d.error); return; }
+
+      const keywords = d.keywords || [];
+      if (!keywords.length) { alert('Ollama ไม่สามารถสกัดคำได้'); return; }
+
+      // แสดง keyword chips
+      kwWrap.innerHTML =
+        '<span style="font-size:11px;color:#6D28D9;font-weight:600;margin-right:2px">🧠</span>' +
+        keywords.map(k => `<span class="ollama-kw-chip">${k}</span>`).join('');
+      kwWrap.style.display = 'flex';
+
+      // ใส่ keywords ลง search box
+      document.getElementById('searchInput').value = keywords.join(' ');
+
+      // ถ้า Ollama ตรวจพบ tax_type ให้เลือก filter อัตโนมัติ
+      if (d.tax_type) {
+        const chip = document.querySelector(`.chip[data-tax="${d.tax_type}"]`);
+        if (chip) setTax(chip);
+      }
+
+      doSearch(1);
+    } catch(e) {
+      alert('เกิดข้อผิดพลาด: ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🧠 ค้นอัจฉริยะ';
+    }
+  }
+
+  checkOllamaStatus();
+</script>
+</body>
+</html>
