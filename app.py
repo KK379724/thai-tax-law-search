@@ -941,6 +941,36 @@ def _reembed_law_doc(d: dict, fpath: str):
     _VEC_CACHE['payloads'] = None
 
 
+def _push_local_edit(fp: str) -> bool:
+    """local mode: commit+push ไฟล์ที่แก้ขึ้น GitHub ทันที — เว็บสาธารณะจะได้ข้อมูลตอน rebuild ตี 5
+    คืน False ถ้าไฟล์เป็น local-only (ติด gitignore เช่น บันทึกส่วนตัว/)"""
+    import subprocess
+    rel = os.path.relpath(fp, DATA_ROOT)
+    git = ['git', '-C', DATA_ROOT]
+    if subprocess.run(git + ['check-ignore', '-q', rel], capture_output=True).returncode == 0:
+        return False
+
+    def run(args):
+        r = subprocess.run(git + args, capture_output=True, text=True, timeout=90)
+        if r.returncode != 0:
+            raise RuntimeError((r.stderr or r.stdout).strip()[-300:])
+        return r
+
+    run(['add', '--', rel])
+    r = subprocess.run(
+        git + ['-c', 'user.name=KK379724', '-c', 'user.email=kunanon63@gmail.com',
+               'commit', '-m', f'แก้ไข {os.path.basename(rel)} (แก้มือผ่านแอป local)', '--', rel],
+        capture_output=True, text=True, timeout=90)
+    if r.returncode != 0:
+        if 'nothing to commit' in (r.stdout + r.stderr):
+            return False   # เนื้อหาไม่เปลี่ยนจริง
+        raise RuntimeError((r.stderr or r.stdout).strip()[-300:])
+    # กัน push ถูกปฏิเสธเมื่อ Actions push ไปก่อนกลางคืน — autostash คุ้มครองไฟล์ค้างอื่นๆ
+    run(['pull', '--rebase', '--autostash', 'origin', 'main'])
+    run(['push', 'origin', 'main'])
+    return True
+
+
 @app.route('/api/save/<path:ruling_id>', methods=['POST'])
 def api_save(ruling_id):
     guard = _edit_guard()
@@ -1016,6 +1046,12 @@ def api_save(ruling_id):
             result['pr_url'] = _create_edit_pr(fp, new_doc, session.get('user', 'editor'))
         except Exception as e:
             warnings.append(f'สร้าง Pull Request ไม่สำเร็จ: {e} — การแก้ไขนี้อยู่บน server ชั่วคราวเท่านั้น จะหายเมื่อ restart')
+    else:
+        # local mode: push ขึ้น GitHub อัตโนมัติ เว็บสาธารณะได้ข้อมูลตอน rebuild ตี 5
+        try:
+            result['pushed'] = _push_local_edit(fp)
+        except Exception as e:
+            warnings.append(f'push ขึ้น GitHub ไม่สำเร็จ: {e} — เว็บสาธารณะจะยังไม่เห็นการแก้นี้ (commit ค้างอยู่ในเครื่อง สั่ง git push ทีหลังได้)')
     return jsonify(result)
 
 
