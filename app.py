@@ -37,8 +37,9 @@ DISABLED_MODES = (['ai', 'answer', 'chat'] if DISABLE_AI else []) + \
 
 # Lookup ทุก JSON ใน repo — ใช้โดย detail endpoint
 def _build_json_lookup() -> dict[str, str]:
+    # หมายเหตุ: ต้องรวม 'บันทึกส่วนตัว' ด้วย ไม่งั้นแก้/ลบบันทึกส่วนตัวหลัง restart ไม่ได้ (หา fp ไม่เจอ)
     _EXCLUDE = {'__pycache__', 'ข้อหารือ-search', 'ตัวจัดระเบียบไฟล json',
-                'url30662', 'แอปตอบปัญหา', 'บันทึกส่วนตัว'}
+                'url30662', 'แอปตอบปัญหา'}
     _YEAR_RE = re.compile(r'^\d{4}$')
     lookup: dict[str, str] = {}
     base = DATA_ROOT
@@ -924,6 +925,8 @@ def _update_law_index_row(d: dict):
                 year = int(_m.group(1))
 
     db = get_db()
+    # upsert: ถ้าเป็น doc ใหม่ (เช่น บันทึกส่วนตัวที่เพิ่งสร้าง) ให้มีแถวก่อน แล้ว UPDATE เติมค่า
+    db.execute('INSERT OR IGNORE INTO meta (id) VALUES (?)', (d['id'],))
     db.execute(
         '''UPDATE meta SET ref_number=?, title=?, year=?, tax_type=?, date=?, source_url=?,
            summary=?, facts=?, ruling_text=?, doc_type=?, repealed=?, plain_summary=?,
@@ -1195,6 +1198,87 @@ def api_delete(ruling_id):
     except Exception as e:
         warnings.append(f'sync การลบขึ้น GitHub ไม่สำเร็จ: {e}')
     return jsonify({'ok': True, 'trash': dest, 'warnings': warnings})
+
+
+_CREATE_FOLDER = {'personal_note': 'บันทึกส่วนตัว'}
+
+@app.route('/api/create', methods=['POST'])
+def api_create():
+    """เพิ่มเอกสารใหม่ (ตอนนี้รองรับ personal_note = บันทึกส่วนตัว/เคสที่เจอเอง)
+    local → เขียนไฟล์+commit+push | เว็บ(ทีม) → สร้าง PR ให้เจ้าของอนุมัติ"""
+    guard = _edit_guard()
+    if guard:
+        return guard
+    body = request.get_json(force=True, silent=True) or {}
+    dtype = (body.get('type') or 'personal_note').strip()
+    if dtype not in _CREATE_FOLDER:
+        return jsonify({'error': f'ตอนนี้เพิ่มได้เฉพาะ: {", ".join(_CREATE_FOLDER)} (เอกสารกฎหมายเพิ่มผ่าน scraper/AI ตาม flow ปกติ)'}), 400
+
+    title = (body.get('title') or '').strip()
+    full_text = (body.get('full_text') or '').strip()
+    if not title:
+        return jsonify({'error': 'กรุณาใส่หัวข้อ (title)'}), 400
+    if not full_text:
+        return jsonify({'error': 'กรุณาใส่เนื้อหา'}), 400
+
+    ts = time.strftime('%Y%m%d-%H%M%S')
+    new_id = f'note-{ts}'
+    tax_type = body.get('tax_type') or []
+    if isinstance(tax_type, str):
+        tax_type = [w.strip() for w in tax_type.split(',') if w.strip()]
+    author = session.get('user') or ('kunanon' if EDIT_BACKEND == 'local' else 'editor')
+
+    doc = {
+        'id': new_id,
+        'type': dtype,
+        'ref_number': '',
+        'title': title,
+        'tax_type': tax_type,
+        'date': (body.get('date') or time.strftime('%Y-%m-%d')),
+        'category': (body.get('category') or 'เคสที่เจอจากการทำงาน').strip(),
+        'summary': (body.get('summary') or '').strip(),
+        'plain_summary': (body.get('plain_summary') or '').strip(),
+        'why_issued': '',
+        'authorizing_law_chain': [],
+        'content': {'full_text': full_text},
+        'manually_edited': True,           # ผู้ใช้พิมพ์เอง — scraper/backfill ห้ามแตะ
+        'author': author,
+        'created_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
+        'edited_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
+    }
+
+    out_dir = os.path.join(DATA_ROOT, _CREATE_FOLDER[dtype])
+    os.makedirs(out_dir, exist_ok=True)
+    fp = os.path.join(out_dir, f'{new_id}.json')
+    tmp = fp + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as f:
+        json.dump(doc, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, fp)
+    _JSON_LOOKUP[new_id] = fp
+
+    warnings = []
+    try:
+        _update_law_index_row(doc)
+    except Exception as e:
+        warnings.append(f'เพิ่มเข้าดัชนีคำสำคัญไม่สำเร็จ: {e} — รัน build_index.py เพื่อซ่อม')
+    if not DISABLE_SEMANTIC:
+        try:
+            _reembed_law_doc(doc, fp)
+        except Exception as e:
+            warnings.append(f'เพิ่มเข้าดัชนีความหมายไม่สำเร็จ: {e}')
+
+    result = {'ok': True, 'id': new_id, 'warnings': warnings}
+    if EDIT_BACKEND == 'github':
+        try:
+            result['pr_url'] = _create_edit_pr(fp, doc, author)
+        except Exception as e:
+            warnings.append(f'สร้าง Pull Request ไม่สำเร็จ: {e} — บันทึกนี้อยู่บน server ชั่วคราว จะหายเมื่อ restart')
+    else:
+        try:
+            result['pushed'] = _push_local_edit(fp)
+        except Exception as e:
+            warnings.append(f'push ขึ้น GitHub ไม่สำเร็จ: {e} — commit ค้างในเครื่อง สั่ง git push ทีหลังได้')
+    return jsonify(result)
 
 
 @app.route('/api/ai_enrich', methods=['POST'])
@@ -1643,6 +1727,7 @@ def all_docs():
 
     db = get_db()
     total = db.execute("SELECT COUNT(*) FROM meta WHERE doc_type=?", (doc_type,)).fetchone()[0]
+    # เรียงตามกฎ user: ประมวลรัษฎากร → ตามเลขมาตรา | ประเภทอื่น → ใหม่ไปเก่า
     if doc_type == 'law_section':
         order_by = ("(CASE WHEN id LIKE 'section-%' THEN CAST(SUBSTR(id,9) AS INTEGER) "
                     "ELSE 999999 END) ASC, id ASC")
