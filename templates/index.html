@@ -1183,6 +1183,13 @@
       </div>
     </div>
 
+    <div class="sidebar-section">
+      <div style="display:flex; gap:8px">
+        <button class="chip" style="flex:1; text-align:center; font-weight:600" onclick="loadWhatsNew()">🆕 กฎหมายมาใหม่</button>
+        <button class="chip" id="btnOcrQueue" style="flex:1; text-align:center; font-weight:600; display:none" onclick="loadOcrQueue()">🛠 คิวแก้ OCR</button>
+      </div>
+    </div>
+
     <!-- Filter: Tax Type -->
     <div class="sidebar-section" id="filterSection">
       <h3>ประเภทภาษี</h3>
@@ -2698,6 +2705,58 @@ ${chatBlocksHtml}
         `<div class="error-box">${e}</div>`;
     }
   }
+
+  function _renderSimpleList(rows, headerHtml) {
+    document.getElementById('resultsCount') && (document.getElementById('resultsCount').textContent = '');
+    const list = document.getElementById('resultsList');
+    list.style.display = '';
+    list.innerHTML = headerHtml + (rows.length ? rows.map((r, i) => `
+      <div class="result-card${r.repealed ? ' is-repealed' : ''}${r.doc_type === 'personal_note' ? ' is-note' : ''}" id="card-${r.id}" onclick="openDetail('${r.id}', this)">
+        <div class="card-header">
+          <span class="card-rank">${i + 1}</span>
+          <span class="card-ref">${escHtml(r.ref_number || r.id)}</span>
+          <span class="card-year">${r.date ? formatDate(r.date) : (r.year ? r.year + ' พ.ศ.' : '')}</span>
+        </div>
+        <div class="card-title">${escHtml(r.title || '')}</div>
+        ${r.snippet ? `<div class="card-snippet">${escHtml(r.snippet)}</div>` : ''}
+        <div class="card-footer">
+          ${r.doc_type ? `<span class="tax-badge" style="background:#F0FDF4;color:#166534;border-color:#BBF7D0">${DOC_TYPE_LABELS[r.doc_type] || r.doc_type}</span>` : ''}
+          ${(r.tax_type || []).map(t => `<span class="tax-badge ${t}">${t}</span>`).join('')}
+          ${r.repealed ? `<span class="status-badge repealed">&#x274C; ยกเลิกแล้ว</span>` : ''}
+        </div>
+      </div>`).join('') : '<div class="loading-state">ไม่มีรายการ</div>');
+  }
+
+  async function loadWhatsNew() {
+    document.getElementById('resultsList').innerHTML = '<div class="loading-state">⏳ กำลังโหลด...</div>';
+    try {
+      const d = await (await fetch('/api/whats_new')).json();
+      _renderSimpleList(d.results || [], `<div style="padding:10px 4px 14px; font-weight:700; font-size:15px">🆕 กฎหมาย/เอกสารลงวันที่ล่าสุดในคลัง (${(d.results||[]).length})</div>`);
+    } catch (e) { alert('โหลดไม่ได้: ' + e.message); }
+  }
+
+  async function loadOcrQueue() {
+    document.getElementById('resultsList').innerHTML = '<div class="loading-state">⏳ กำลังโหลดคิว...</div>';
+    try {
+      const d = await (await fetch('/api/ocr_queue')).json();
+      if (d.error) { alert(d.error); return; }
+      const rows = (d.queue || []).map(q => ({
+        id: q.id, ref_number: q.ref_number, title: q.title, year: q.year,
+        doc_type: q.doc_type, repealed: 0, tax_type: [],
+        snippet: `ความเพี้ยน ${q.ocr_score} | ${(q.issues || []).join(' · ')}`,
+      }));
+      _renderSimpleList(rows, `<div style="padding:10px 4px 4px; font-weight:700; font-size:15px">🛠 คิวเอกสาร OCR เพี้ยน — ควรแก้ก่อนอยู่บนสุด (${rows.length}${d.flagged ? ' จาก ' + d.flagged : ''})</div>
+        <div style="padding:0 4px 12px; font-size:12px; color:var(--gray-500)">คลิกเอกสาร → ✏️ แก้ไข → เทียบต้นฉบับแล้วพิมพ์แก้ full_text — ไฟล์ที่แก้แล้วจะหลุดจากคิวคืนถัดไป</div>`);
+    } catch (e) { alert('โหลดไม่ได้: ' + e.message); }
+  }
+
+  // โชว์ปุ่มคิว OCR เฉพาะคนแก้ได้ (เจ้าของ local / editor login บนเว็บ)
+  fetch('/api/me').then(r => r.json()).then(me => {
+    if (me.edit_backend === 'local' || me.user) {
+      const b = document.getElementById('btnOcrQueue');
+      if (b) b.style.display = '';
+    }
+  }).catch(() => {});
 
   function detailGoBack() {
     if (!detailHistory.length) return;

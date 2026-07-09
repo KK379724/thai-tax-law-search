@@ -303,8 +303,10 @@ def build():
 
     # Build ไปที่ temp file ก่อน — running app ยังอ่าน DB เดิมได้ระหว่าง rebuild
     tmp_path = DB_PATH + '.new'
-    if os.path.exists(tmp_path):
-        os.remove(tmp_path)
+    # เคลียร์ temp + WAL/SHM ค้างจาก build ที่โดนฆ่ากลางคัน (ไม่งั้น sqlite ให้ disk I/O error)
+    for _ext in ('', '-wal', '-shm'):
+        if os.path.exists(tmp_path + _ext):
+            os.remove(tmp_path + _ext)
 
     db = sqlite3.connect(tmp_path)
     db.execute('PRAGMA journal_mode=WAL')

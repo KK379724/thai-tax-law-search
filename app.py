@@ -1102,6 +1102,40 @@ def api_save(ruling_id):
     return jsonify(result)
 
 
+@app.route('/api/whats_new')
+def api_whats_new():
+    """กฎหมาย/เอกสารที่ลงวันที่ล่าสุดในคลัง — หน้า "มาใหม่" ดึงคนกลับเว็บ"""
+    db = get_db()
+    rows = db.execute(
+        """SELECT id, ref_number, title, year, tax_type, doc_type, repealed, plain_summary, summary, date
+           FROM meta WHERE date IS NOT NULL AND date != '' AND doc_type NOT IN ('personal_note','law_section','act')
+           ORDER BY date DESC LIMIT 30""").fetchall()
+    db.close()
+    results = [{
+        'id': r['id'], 'ref_number': r['ref_number'] or '', 'title': r['title'] or '',
+        'year': r['year'], 'doc_type': r['doc_type'], 'repealed': r['repealed'],
+        'date': r['date'],
+        'tax_type': [t for t in (r['tax_type'] or '').split(',') if t],
+        'snippet': (r['plain_summary'] or r['summary'] or '')[:250],
+    } for r in rows]
+    return jsonify({'results': results, 'total': len(results)})
+
+
+@app.route('/api/ocr_queue')
+def api_ocr_queue():
+    """คิวเอกสาร OCR เพี้ยน (สร้างโดย scan_ocr_quality.py ทุกคืน) — สำหรับทีมแก้ไข"""
+    guard = _edit_guard()
+    if guard:
+        return guard
+    qf = os.path.join(DATA_ROOT, 'ocr_fix_queue.json')
+    if not os.path.exists(qf):
+        return jsonify({'queue': [], 'note': 'ยังไม่มีคิว — รัน scan_ocr_quality.py ก่อน'})
+    with open(qf, encoding='utf-8') as f:
+        data = json.load(f)
+    return jsonify({'queue': data.get('queue', [])[:200],
+                    'scanned': data.get('scanned'), 'flagged': data.get('flagged')})
+
+
 @app.route('/api/delete/<path:ruling_id>', methods=['POST'])
 def api_delete(ruling_id):
     """ลบบันทึกส่วนตัว (เฉพาะ type=personal_note, เฉพาะเครื่อง local) — ย้ายเข้าถังขยะ กู้คืนได้
@@ -1782,10 +1816,34 @@ if os.path.expanduser('~/scripts') not in sys.path:
 _VEC_CACHE: dict = {'V_unit': None, 'payloads': None}
 
 
+def _load_vec_files():
+    """โหลด vector cache จากไฟล์ export (.vec_cache.npz จาก GitHub Release) — สำหรับ cloud ที่ไม่มี Qdrant"""
+    import gzip
+    import numpy as np
+    vec_f = os.path.join(DATA_ROOT, '.vec_cache.npz')
+    pay_f = os.path.join(DATA_ROOT, '.vec_payloads.json.gz')
+    if not (os.path.exists(vec_f) and os.path.exists(pay_f)):
+        return None, None
+    V = np.load(vec_f)['vectors'].astype(np.float32)
+    norms = np.linalg.norm(V, axis=1, keepdims=True)
+    norms[norms == 0] = 1.0
+    with gzip.open(pay_f, 'rt', encoding='utf-8') as f:
+        payloads = json.load(f)
+    return V / norms, payloads
+
+
 def _get_vec_cache():
-    """โหลด Qdrant vectors ครั้งแรก แล้ว cache ไว้ตลอด process — คืน (V_unit, payloads) หรือ (None, None)"""
+    """โหลด vectors ครั้งแรก แล้ว cache ตลอด process — cloud: ไฟล์ก่อน / local: Qdrant สดก่อน"""
     if _VEC_CACHE['V_unit'] is not None:
         return _VEC_CACHE['V_unit'], _VEC_CACHE['payloads']
+    if EDIT_BACKEND == 'github':
+        try:
+            V, payloads = _load_vec_files()
+            if V is not None:
+                _VEC_CACHE['V_unit'], _VEC_CACHE['payloads'] = V, payloads
+                return V, payloads
+        except Exception:
+            pass
     try:
         import numpy as np
         from qdrant_client import QdrantClient
@@ -1815,6 +1873,13 @@ def _get_vec_cache():
         _VEC_CACHE['payloads'] = payloads
         return V_unit, payloads
     except Exception:
+        try:
+            V, payloads = _load_vec_files()
+            if V is not None:
+                _VEC_CACHE['V_unit'], _VEC_CACHE['payloads'] = V, payloads
+                return V, payloads
+        except Exception:
+            pass
         return None, None
 
 
@@ -3126,6 +3191,63 @@ def sections_list():
     } for r in rows])
 
 
+def _annotate_child_docs(db, docs):
+    """เพิ่ม amended (bool) + repealed_by_ref (str|None) ให้ list ของ child law docs
+    (แต่ละ dict ต้องมี id, ref, repealed, และ '_full_ref' — ref_number เต็มไม่ตัด — สำหรับ regex)
+    โดย query doc_relations แบบ bulk (ไม่วน query ต่อแถว)"""
+    if not docs:
+        return docs
+
+    ids = [d['id'] for d in docs]
+    doc_nums: dict[str, int] = {}
+    for d in docs:
+        # ใช้ ref_number เต็ม (ไม่ตัด) เพื่อไม่ให้ "(ฉบับที่ N)" หลุดไปถ้าชื่อยาว
+        m = re.search(r'ฉบับที่\s*(\d+)', d.get('_full_ref') or d.get('ref') or '')
+        if m:
+            doc_nums[d['id']] = int(m.group(1))
+
+    amended_ids: set = set()
+    ph = ','.join('?' * len(ids))
+    for row in db.execute(
+        f"SELECT DISTINCT doc_id FROM doc_relations WHERE doc_id IN ({ph}) AND relation='amended_by'", ids
+    ):
+        amended_ids.add(row[0])
+
+    if doc_nums:
+        num_to_ids: dict[int, list] = {}
+        for _id, n in doc_nums.items():
+            num_to_ids.setdefault(n, []).append(_id)
+        nums = list(num_to_ids.keys())
+        phn = ','.join('?' * len(nums))
+        for (n,) in db.execute(
+            f"SELECT DISTINCT target_num FROM doc_relations WHERE target_num IN ({phn}) AND relation='amends'", nums
+        ):
+            for _id in num_to_ids.get(n, []):
+                amended_ids.add(_id)
+
+    repealed_by_map: dict[str, str] = {}
+    rep_ids = [d['id'] for d in docs if d.get('repealed') and d['id'] in doc_nums]
+    if rep_ids:
+        num_to_ids2: dict[int, list] = {}
+        for _id in rep_ids:
+            num_to_ids2.setdefault(doc_nums[_id], []).append(_id)
+        rep_nums = list(num_to_ids2.keys())
+        phr = ','.join('?' * len(rep_nums))
+        rows = db.execute(f"""
+            SELECT dr.target_num, m.ref_number
+            FROM doc_relations dr JOIN meta m ON dr.doc_id = m.id
+            WHERE dr.target_num IN ({phr}) AND dr.relation='repeals'
+        """, rep_nums).fetchall()
+        for tn, ref in rows:
+            for _id in num_to_ids2.get(tn, []):
+                repealed_by_map.setdefault(_id, ref)
+
+    for d in docs:
+        d['amended'] = d['id'] in amended_ids
+        d['repealed_by_ref'] = repealed_by_map.get(d['id'])
+    return docs
+
+
 @app.route('/api/section_tree/<path:section_id>')
 def section_tree(section_id):
     """คืน law tree สำหรับมาตราหนึ่ง — กฎหมายลูก + ฎีกา + ข้อหารือ"""
@@ -3159,17 +3281,23 @@ def section_tree(section_id):
         ORDER BY m.year DESC
     """, (f'%{sec_ref}%',)).fetchall()
 
-    # จัดกลุ่มตาม doc_type
+    # จัดกลุ่มตาม doc_type (ไม่จำกัดจำนวน — ต้องแสดงกฎหมายลูกให้ครบทุกฉบับ)
+    all_child_docs = [{
+        'id':       r['id'],
+        'ref':      (r['ref_number'] or r['id'])[:60],
+        '_full_ref': r['ref_number'] or r['id'],  # ใช้ภายในสำหรับ regex เท่านั้น — ตัดออกก่อนส่ง response
+        'title':    (r['title'] or '')[:70],
+        'year':     r['year'] or 0,
+        'repealed': bool(r['repealed']),
+        'doc_type': r['doc_type'] or 'other',
+    } for r in child_rows]
+    _annotate_child_docs(db, all_child_docs)  # เพิ่ม amended / repealed_by_ref
+    for d in all_child_docs:
+        del d['_full_ref']
+
     groups: dict[str, list] = {}
-    for r in child_rows:
-        dt = r['doc_type'] or 'other'
-        groups.setdefault(dt, []).append({
-            'id':       r['id'],
-            'ref':      (r['ref_number'] or r['id'])[:60],
-            'title':    (r['title'] or '')[:70],
-            'year':     r['year'] or 0,
-            'repealed': bool(r['repealed']),
-        })
+    for d in all_child_docs:
+        groups.setdefault(d['doc_type'], []).append(d)
 
     children = []
     TYPE_LABELS = {
@@ -3187,14 +3315,13 @@ def section_tree(section_id):
         icon, label = TYPE_LABELS.get(dt, ('📄', dt))
         children.append({'doc_type': dt, 'icon': icon, 'label': label, 'docs': docs})
 
-    # ข้อหารือ — นับ + เอา 15 ล่าสุด
+    # ข้อหารือ — คืนทั้งหมด (หน้าเว็บจัดการแสดง/ย่อเอง — ห้ามตัดข้อมูลที่ backend)
     ruling_rows = db.execute("""
         SELECT DISTINCT m.id, m.ref_number, m.title, m.year
         FROM law_links ll JOIN meta m ON ll.doc_id = m.id
         WHERE ll.sections LIKE ?
           AND m.doc_type = 'ruling'
         ORDER BY m.year DESC
-        LIMIT 15
     """, (f'%{sec_ref}%',)).fetchall()
     ruling_count_row = db.execute("""
         SELECT COUNT(DISTINCT m.id)
@@ -3218,7 +3345,7 @@ def section_tree(section_id):
         if d['id'] not in seen_ids:
             seen_ids.add(d['id'])
             dika_dedup.append(d)
-    dika = sorted(dika_dedup, key=lambda x: -x['year'])[:20]
+    dika = sorted(dika_dedup, key=lambda x: -x['year'])  # คืนทั้งหมด ไม่ตัด
 
     return jsonify({
         'section': {
