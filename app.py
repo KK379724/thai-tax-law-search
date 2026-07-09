@@ -1139,6 +1139,25 @@ def api_ocr_queue():
                     'scanned': data.get('scanned'), 'flagged': data.get('flagged')})
 
 
+_OCR_IDS_CACHE = {'ids': None, 'mtime': -1}
+
+@app.route('/api/ocr_queue_ids')
+def api_ocr_queue_ids():
+    """คืนชุด id ที่อยู่ในคิว OCR — ให้หน้าเว็บติดป้าย '⏳ รอตรวจ OCR' บนเอกสารที่ full_text อาจเพี้ยน
+    (เปิดให้ทุกคนเห็น = ความโปร่งใสว่าเอกสารไหนยังไม่ผ่านการตรวจ)"""
+    qf = os.path.join(DATA_ROOT, 'ocr_fix_queue.json')
+    try:
+        m = os.path.getmtime(qf)
+        if _OCR_IDS_CACHE['ids'] is None or m != _OCR_IDS_CACHE['mtime']:
+            with open(qf, encoding='utf-8') as f:
+                data = json.load(f)
+            _OCR_IDS_CACHE['ids'] = [it.get('id') for it in data.get('queue', []) if it.get('id')]
+            _OCR_IDS_CACHE['mtime'] = m
+    except Exception:
+        _OCR_IDS_CACHE['ids'] = _OCR_IDS_CACHE['ids'] or []
+    return jsonify({'ids': _OCR_IDS_CACHE['ids']})
+
+
 @app.route('/api/delete/<path:ruling_id>', methods=['POST'])
 def api_delete(ruling_id):
     """ลบบันทึกส่วนตัว (เฉพาะ type=personal_note, เฉพาะเครื่อง local) — ย้ายเข้าถังขยะ กู้คืนได้

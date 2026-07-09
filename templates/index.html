@@ -1184,9 +1184,10 @@
     </div>
 
     <div class="sidebar-section">
-      <div style="display:flex; gap:8px">
-        <button class="chip" style="flex:1; text-align:center; font-weight:600" onclick="loadWhatsNew()">🆕 กฎหมายมาใหม่</button>
-        <button class="chip" id="btnOcrQueue" style="flex:1; text-align:center; font-weight:600; display:none" onclick="loadOcrQueue()">🛠 คิวแก้ OCR</button>
+      <div style="display:flex; gap:8px; flex-wrap:wrap">
+        <button class="chip" style="flex:1; min-width:130px; text-align:center; font-weight:600" onclick="loadWhatsNew()">🆕 กฎหมายมาใหม่</button>
+        <button class="chip" id="btnOcrQueue" style="flex:1; min-width:130px; text-align:center; font-weight:600; display:none" onclick="loadOcrQueue()">📋 งานค้าง (รอตรวจ OCR)</button>
+        <button class="chip" id="btnAddNote" style="flex:1; min-width:130px; text-align:center; font-weight:600; display:none; color:#047857; border-color:#6ee7b7" onclick="openAddNote()">➕ เพิ่มบันทึก/เคส</button>
       </div>
     </div>
 
@@ -1338,12 +1339,59 @@
        title="ดูในแผนผังกฎหมายแม่-ลูก">🌳 แผนผัง</a>
     <button id="detailDelBtn" onclick="deleteDetail()" style="display:none;font-size:.72rem;color:#fda4af;background:none;cursor:pointer;border:1px solid #881337;border-radius:5px;padding:3px 8px;white-space:nowrap;flex-shrink:0" title="ลบบันทึกส่วนตัวนี้ (ย้ายเข้าถังขยะ กู้คืนได้)">🗑 ลบ</button>
     <button id="detailEditBtn" onclick="editDetail()"
-       style="font-size:.72rem;color:#6ee7b7;background:none;cursor:pointer;border:1px solid #1d5c46;border-radius:5px;padding:3px 8px;white-space:nowrap;flex-shrink:0"
-       title="แก้ไขไฟล์ JSON ของเอกสารนี้ (เทียบกับต้นฉบับแล้วพิมพ์แก้เอง)">✏️ แก้ไข</button>
+       style="font-size:.8rem;font-weight:700;color:#fff;background:#059669;cursor:pointer;border:none;border-radius:6px;padding:6px 14px;white-space:nowrap;flex-shrink:0;box-shadow:0 1px 3px rgba(5,150,105,.3)"
+       title="แก้ไขเอกสารนี้ (เทียบต้นฉบับแล้วพิมพ์แก้ full_text เอง — บันทึกแล้วเข้าคลังทันที)">✏️ แก้ไขเอกสารนี้</button>
     <button class="detail-close" onclick="closeDetail()">✕</button>
   </div>
   <div class="detail-body" id="detailBody">
     <div class="loading-row"><div class="spinner"></div> กำลังโหลด…</div>
+  </div>
+</div>
+
+<!-- ADD NOTE MODAL (เพิ่มบันทึกส่วนตัว/เคส) -->
+<div id="addNoteOverlay" onclick="closeAddNote()"
+     style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:998"></div>
+<div id="addNoteModal"
+     style="display:none;position:fixed;z-index:999;top:50%;left:50%;transform:translate(-50%,-50%);
+            width:min(620px,94vw);max-height:90vh;overflow:auto;background:#fff;color:#0f172a;
+            border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:22px 24px">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+    <span style="font-size:1.3rem">➕</span>
+    <h2 style="font-size:1.05rem;font-weight:800;margin:0;flex:1">เพิ่มบันทึกส่วนตัว / เคสที่เจอ</h2>
+    <button onclick="closeAddNote()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#64748b">✕</button>
+  </div>
+  <div style="font-size:.76rem;color:#64748b;line-height:1.6;margin-bottom:16px;padding:8px 12px;background:#fef9c3;border:1px solid #fde68a;border-radius:8px">
+    ⚠️ บันทึกส่วนตัว = ความเห็น/เคสจากการทำงาน <b>ไม่ใช่กฎหมาย</b> ไม่มีผลผูกพันทางกฎหมาย —
+    บันทึกแล้วเก็บในโฟลเดอร์ <code>บันทึกส่วนตัว</code> และค้นเจอในหมวด 📝 บันทึกส่วนตัว
+  </div>
+  <label style="display:block;font-size:.78rem;font-weight:700;color:#334155;margin-bottom:4px">ประเภท</label>
+  <select id="anType" style="width:100%;padding:9px 10px;border:1px solid #cbd5e1;border-radius:7px;font-size:.85rem;margin-bottom:14px;background:#fff;color:#0f172a">
+    <option value="personal_note">📝 บันทึกส่วนตัว / เคสที่เจอจากการทำงาน</option>
+  </select>
+  <label style="display:block;font-size:.78rem;font-weight:700;color:#334155;margin-bottom:4px">หัวข้อ <span style="color:#dc2626">*</span></label>
+  <input id="anTitle" type="text" placeholder="เช่น เคส: ผู้เสียภาษีขาย RMF ก่อนอายุ 55"
+         style="width:100%;padding:9px 10px;border:1px solid #cbd5e1;border-radius:7px;font-size:.85rem;margin-bottom:14px;background:#fff;color:#0f172a">
+  <label style="display:block;font-size:.78rem;font-weight:700;color:#334155;margin-bottom:4px">ประเภทภาษีที่เกี่ยว (เลือกได้หลายอัน)</label>
+  <div style="margin-bottom:14px;display:flex;flex-wrap:wrap;gap:10px" id="anTaxWrap">
+    <label style="font-size:.78rem"><input type="checkbox" value="PIT"> PIT</label>
+    <label style="font-size:.78rem"><input type="checkbox" value="CIT"> CIT</label>
+    <label style="font-size:.78rem"><input type="checkbox" value="VAT"> VAT</label>
+    <label style="font-size:.78rem"><input type="checkbox" value="SBT"> SBT</label>
+    <label style="font-size:.78rem"><input type="checkbox" value="WHT"> WHT</label>
+    <label style="font-size:.78rem"><input type="checkbox" value="Stamp"> Stamp</label>
+  </div>
+  <label style="display:block;font-size:.78rem;font-weight:700;color:#334155;margin-bottom:4px">เนื้อหา <span style="color:#dc2626">*</span></label>
+  <textarea id="anBody" rows="9" placeholder="พิมพ์รายละเอียดเคส/บันทึก... (ข้อเท็จจริง แนวทางที่ใช้ มาตราที่เกี่ยว ข้อสังเกต)"
+            style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:7px;font-size:.85rem;line-height:1.7;resize:vertical;background:#fff;color:#0f172a;margin-bottom:6px"></textarea>
+  <label style="display:block;font-size:.78rem;font-weight:700;color:#334155;margin-bottom:4px;margin-top:8px">สรุปสั้น (ไม่บังคับ)</label>
+  <input id="anSummary" type="text" placeholder="สรุป 1 บรรทัด (เว้นว่างได้)"
+         style="width:100%;padding:9px 10px;border:1px solid #cbd5e1;border-radius:7px;font-size:.85rem;margin-bottom:18px;background:#fff;color:#0f172a">
+  <div style="display:flex;gap:10px;align-items:center">
+    <button onclick="submitAddNote()" id="anSaveBtn"
+            style="background:#059669;color:#fff;border:none;border-radius:7px;padding:10px 24px;font-size:.88rem;font-weight:700;cursor:pointer">💾 บันทึก</button>
+    <button onclick="closeAddNote()"
+            style="background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:7px;padding:9px 16px;font-size:.82rem;cursor:pointer">ยกเลิก</button>
+    <span id="anStatus" style="font-size:.78rem;color:#64748b"></span>
   </div>
 </div>
 
@@ -1900,7 +1948,7 @@
         <div class="card-footer">
           ${r.doc_type && r.doc_type !== 'ruling' ? `<span class="tax-badge" style="background:#F0FDF4;color:#166534;border-color:#BBF7D0">${DOC_TYPE_LABELS[r.doc_type]||r.doc_type}</span>` : ''}
           ${(r.tax_type||[]).map(t => `<span class="tax-badge ${t}">${t}</span>`).join('')}
-          ${r.repealed ? `<span class="status-badge repealed">&#x274C; ยกเลิกแล้ว</span>` : ''}
+          ${r.repealed ? `<span class="status-badge repealed">&#x274C; ยกเลิกแล้ว</span>` : ''}${_ocrBadge(r.id)}
         </div>
       </div>`).join('');
 
@@ -1963,7 +2011,7 @@
         <div class="card-footer">
           ${r.doc_type && r.doc_type !== 'ruling' ? `<span class="tax-badge" style="background:#F5F3FF;color:#5B21B6;border-color:#DDD6FE">${DOC_TYPE_LABELS[r.doc_type]||r.doc_type}</span>` : ''}
           ${(r.tax_type||[]).map(t => `<span class="tax-badge ${t}">${t}</span>`).join('')}
-          ${r.repealed ? `<span class="status-badge repealed">&#x274C; ยกเลิกแล้ว</span>` : ''}
+          ${r.repealed ? `<span class="status-badge repealed">&#x274C; ยกเลิกแล้ว</span>` : ''}${_ocrBadge(r.id)}
         </div>
       </div>`;
     }).join('');
@@ -2549,7 +2597,7 @@ ${chatBlocksHtml}
           <div class="card-footer">
             ${r.doc_type && r.doc_type !== 'ruling' ? `<span class="tax-badge" style="background:#F0FDF4;color:#166534;border-color:#BBF7D0">${DOC_TYPE_LABELS[r.doc_type]||r.doc_type}</span>` : ''}
             ${(r.tax_type||[]).map(t => `<span class="tax-badge ${t}">${t}</span>`).join('')}
-            ${r.repealed ? `<span class="status-badge repealed">&#x274C; ยกเลิกแล้ว</span>` : ''}
+            ${r.repealed ? `<span class="status-badge repealed">&#x274C; ยกเลิกแล้ว</span>` : ''}${_ocrBadge(r.id)}
             ${!r.repealed && r.has_amendment ? `<span class="status-badge amended">&#x26A0; ถูกแก้ไข</span>` : ''}
           </div>
         </div>`;
@@ -2722,7 +2770,7 @@ ${chatBlocksHtml}
         <div class="card-footer">
           ${r.doc_type ? `<span class="tax-badge" style="background:#F0FDF4;color:#166534;border-color:#BBF7D0">${DOC_TYPE_LABELS[r.doc_type] || r.doc_type}</span>` : ''}
           ${(r.tax_type || []).map(t => `<span class="tax-badge ${t}">${t}</span>`).join('')}
-          ${r.repealed ? `<span class="status-badge repealed">&#x274C; ยกเลิกแล้ว</span>` : ''}
+          ${r.repealed ? `<span class="status-badge repealed">&#x274C; ยกเลิกแล้ว</span>` : ''}${_ocrBadge(r.id)}
         </div>
       </div>`).join('') : '<div class="loading-state">ไม่มีรายการ</div>');
   }
@@ -2752,11 +2800,66 @@ ${chatBlocksHtml}
 
   // โชว์ปุ่มคิว OCR เฉพาะคนแก้ได้ (เจ้าของ local / editor login บนเว็บ)
   fetch('/api/me').then(r => r.json()).then(me => {
-    if (me.edit_backend === 'local' || me.user) {
+    window.__canEdit = (me.edit_backend === 'local' || !!me.user);
+    if (window.__canEdit) {
       const b = document.getElementById('btnOcrQueue');
       if (b) b.style.display = '';
+      const a = document.getElementById('btnAddNote');
+      if (a) a.style.display = '';
     }
   }).catch(() => {});
+
+  // ป้าย "⏳ รอตรวจ OCR" — โหลดชุด id ที่อยู่ในคิว OCR (full_text อาจเพี้ยน ยังไม่ผ่านการตรวจ)
+  window.__ocrIds = new Set();
+  fetch('/api/ocr_queue_ids').then(r => r.json())
+    .then(d => { window.__ocrIds = new Set(d.ids || []); }).catch(() => {});
+  function _ocrBadge(id) {
+    return (id && window.__ocrIds && window.__ocrIds.has(id))
+      ? '<span class="status-badge" style="background:#FEF3C7;color:#92400E;border:1px solid #FDE68A" title="เอกสารนี้ยังไม่ผ่านการตรวจ OCR — full_text อาจเพี้ยน ควรเทียบต้นฉบับก่อนใช้อ้างอิง">&#x23F3; รอตรวจ OCR</span>'
+      : '';
+  }
+
+  function openAddNote() {
+    document.getElementById('anTitle').value = '';
+    document.getElementById('anBody').value = '';
+    document.getElementById('anSummary').value = '';
+    document.querySelectorAll('#anTaxWrap input').forEach(c => c.checked = false);
+    document.getElementById('anStatus').textContent = '';
+    document.getElementById('addNoteOverlay').style.display = 'block';
+    document.getElementById('addNoteModal').style.display = 'block';
+    document.getElementById('anTitle').focus();
+  }
+  function closeAddNote() {
+    document.getElementById('addNoteOverlay').style.display = 'none';
+    document.getElementById('addNoteModal').style.display = 'none';
+  }
+  async function submitAddNote() {
+    const status = document.getElementById('anStatus');
+    const btn = document.getElementById('anSaveBtn');
+    const title = document.getElementById('anTitle').value.trim();
+    const full_text = document.getElementById('anBody').value.trim();
+    if (!title) { status.style.color = '#dc2626'; status.textContent = 'ใส่หัวข้อก่อน'; return; }
+    if (!full_text) { status.style.color = '#dc2626'; status.textContent = 'ใส่เนื้อหาก่อน'; return; }
+    const tax_type = Array.from(document.querySelectorAll('#anTaxWrap input:checked')).map(c => c.value);
+    btn.disabled = true; status.style.color = '#64748b'; status.textContent = 'กำลังบันทึก...';
+    try {
+      const r = await (await fetch('/api/create', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: document.getElementById('anType').value,
+          title, full_text, tax_type,
+          summary: document.getElementById('anSummary').value.trim(),
+        }),
+      })).json();
+      if (r.error) { status.style.color = '#dc2626'; status.textContent = '❌ ' + r.error; btn.disabled = false; return; }
+      status.style.color = '#059669';
+      status.textContent = '✅ บันทึกแล้ว' + (r.pr_url ? ' (ส่ง PR ให้เจ้าของอนุมัติ)' : '') +
+                           (r.warnings && r.warnings.length ? ' ⚠️ ' + r.warnings.join(' ') : '');
+      setTimeout(() => { closeAddNote(); if (r.id) openDetail(r.id); }, 900);
+    } catch (e) {
+      status.style.color = '#dc2626'; status.textContent = '❌ ' + e.message; btn.disabled = false;
+    } finally { btn.disabled = false; }
+  }
 
   function detailGoBack() {
     if (!detailHistory.length) return;
@@ -2822,6 +2925,26 @@ ${chatBlocksHtml}
     return `<label style="display:block;margin-bottom:10px;font-size:.75rem;color:#334155;font-weight:600">${escHtml(label)}<div style="margin-top:3px">${el}</div></label>`;
   }
 
+  // dropdown เลือกประเภท (= "ย้ายหมวด") — เปลี่ยน type แล้วบันทึก เอกสารจะย้ายไปหมวดใหม่ทันที
+  const _TYPE_OPTS = [
+    ['law_section','ประมวลรัษฎากร (มาตรา)'], ['act','พระราชบัญญัติ'], ['royal_decree','พระราชกฤษฎีกา'],
+    ['ministerial_regulation','กฎกระทรวง'], ['ministry_notification','ประกาศกระทรวงการคลัง'],
+    ['ministry_order','คำสั่งกระทรวงการคลัง'], ['ministry_regulation_order','ระเบียบกระทรวงการคลัง'],
+    ['director_general_notification','ประกาศอธิบดีกรมสรรพากร'], ['department_notification','ประกาศกรมสรรพากร'],
+    ['department_order','คำสั่งกรมสรรพากร'], ['department_explanation','คำชี้แจงกรมสรรพากร'],
+    ['committee_ruling','คำวินิจฉัยคณะกรรมการ'], ['court_judgment','คำพิพากษาฎีกา'],
+    ['ruling','ข้อหารือ'], ['training','Q&A กรมสรรพากร'], ['tax_benefit_summary','สรุปสิทธิประโยชน์'],
+    ['personal_note','บันทึกส่วนตัว'],
+  ];
+  function _typeSelectRow(current) {
+    const cur = String(current || '');
+    let opts = _TYPE_OPTS.map(([v, l]) => `<option value="${v}"${v === cur ? ' selected' : ''}>${l}</option>`).join('');
+    if (cur && !_TYPE_OPTS.some(([v]) => v === cur)) opts = `<option value="${escHtml(cur)}" selected>${escHtml(cur)} (เดิม)</option>` + opts;
+    const inputStyle = 'width:100%;background:#fff;color:#0F172A;border:1px solid #CBD5E1;border-radius:6px;padding:8px 10px;font:inherit;font-size:.85rem';
+    return `<label style="display:block;margin-bottom:10px;font-size:.75rem;color:#334155;font-weight:600">type (ประเภท/หมวด — เปลี่ยนแล้วเอกสารย้ายหมวดทันที)
+      <div style="margin-top:3px"><select data-editkey="type" style="${inputStyle}">${opts}</select></div></label>`;
+  }
+
   async function editDetail() {
     if (!detailCurrentId) return;
     // cloud mode (github backend) ต้อง login ก่อนถึงจะแก้ได้
@@ -2842,18 +2965,24 @@ ${chatBlocksHtml}
 
     const LIST_OK = ['keywords', 'tax_type', 'related_sections'];
     const SKIP = new Set(['id', 'manually_edited', 'edited_at', 'summary', 'plain_summary', 'keywords']);
-    // ช่องหลักขึ้นก่อนเสมอ (แม้ไฟล์เดิมยังไม่มี field) — full_text คุณพิมพ์เอง summary ให้ AI ช่วยได้
-    let rows = _editFieldRow('summary', 'summary (สรุปทางการ — กด 🤖 ให้ AI ร่างได้)', d.summary || '')
+    // ช่องหลักขึ้นก่อนเสมอ (แม้ไฟล์เดิมยังไม่มี field)
+    // full_text = งานหลัก (พิมพ์แก้ให้ตรงต้นฉบับ) → ขึ้นบนสุด + ใหญ่สุด
+    const _ftVal = (d.content && typeof d.content === 'object' && !Array.isArray(d.content))
+      ? (d.content.full_text || '') : (d.full_text || '');
+    let rows = _editFieldRow('content.full_text', '📄 เนื้อหาเต็ม (full_text) — พิมพ์แก้ให้ตรงต้นฉบับ (งานหลัก)', _ftVal)
+             + _editFieldRow('summary', 'summary (สรุปทางการ — กด 🤖 ให้ AI ร่างได้)', d.summary || '')
              + _editFieldRow('plain_summary', 'plain_summary (สรุปภาษาชาวบ้าน)', d.plain_summary || '')
              + _editFieldRow('keywords', 'keywords (คั่นด้วย ,)', (d.keywords || []).join(', '), true);
     for (const [k, v] of Object.entries(d)) {
       if (SKIP.has(k)) continue;
       if (typeof v === 'string') {
-        rows += _editFieldRow(k, k, v, k === 'type' || k === 'date' || k === 'id');
+        if (k === 'type') rows += _typeSelectRow(v);
+        else rows += _editFieldRow(k, k, v, k === 'date' || k === 'id');
       } else if (Array.isArray(v) && LIST_OK.includes(k) && v.every(x => typeof x === 'string')) {
         rows += _editFieldRow(k, k + ' (คั่นด้วย ,)', v.join(', '), true);
       } else if (k === 'content' && v && typeof v === 'object' && !Array.isArray(v)) {
         for (const [ck, cv] of Object.entries(v)) {
+          if (ck === 'full_text') continue;   // แสดงไว้บนสุดแล้ว
           if (typeof cv === 'string' || cv === null) rows += _editFieldRow('content.' + ck, 'content → ' + ck, cv);
         }
       }
@@ -3155,8 +3284,16 @@ ${chatBlocksHtml}
       }).catch(() => {});
     } else if (delBtn) delBtn.style.display = 'none';
 
+    // ป้ายรอตรวจ OCR — เอกสารนี้อยู่ในคิว full_text อาจเพี้ยน
+    let ocrWarn = '';
+    if (window.__ocrIds && window.__ocrIds.has(detailCurrentId)) {
+      ocrWarn = `<div style="background:#FFFBEB;border:1.5px solid #FDE68A;border-radius:10px;padding:11px 15px;margin-bottom:14px;font-size:13px;color:#92400E;line-height:1.6">
+        <strong>&#x23F3; เอกสารนี้ยังไม่ผ่านการตรวจ OCR</strong><br>
+        เนื้อหา (full_text) อาจมีตัวอักษร/ตัวเลขเพี้ยนจากการสแกน — ควรเทียบกับต้นฉบับก่อนใช้อ้างอิง${window.__canEdit ? ' &nbsp;กด <b>✏️ แก้ไข</b> เพื่อพิมพ์แก้ให้ถูก แล้วเอกสารจะหลุดจากคิว' : ''}</div>`;
+    }
+
     document.getElementById('detailBody').innerHTML = `
-      ${noteWarn}
+      ${ocrWarn}${noteWarn}
       <h2 class="detail-title">${escHtml(d.title||'')}</h2>
       <div class="detail-meta">
         <div class="detail-meta-item"><label>เลขที่</label><span>${escHtml(d.ref_number||'—')}</span></div>
@@ -3312,7 +3449,7 @@ ${chatBlocksHtml}
           <div class="card-footer">
             ${typeLabel ? `<span class="tax-badge" style="background:#F0FDF4;color:#166534;border-color:#BBF7D0">${typeLabel}</span>` : ''}
             ${(r.tax_type||[]).map(t => `<span class="tax-badge ${t}">${t}</span>`).join('')}
-            ${r.repealed ? `<span class="status-badge repealed">&#x274C; ยกเลิกแล้ว</span>` : ''}
+            ${r.repealed ? `<span class="status-badge repealed">&#x274C; ยกเลิกแล้ว</span>` : ''}${_ocrBadge(r.id)}
             ${!r.repealed && r.has_amendment ? `<span class="status-badge amended">&#x26A0; ถูกแก้ไข</span>` : ''}
           </div>
         </div>`;
