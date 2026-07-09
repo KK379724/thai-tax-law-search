@@ -1633,7 +1633,7 @@ def law_tree(doc_id):
 
 @app.route('/api/all_docs')
 def all_docs():
-    """แสดงเอกสารทั้งหมดตาม doc_type เรียงตามวันที่ออก (เก่าไปใหม่)"""
+    """แสดงเอกสารทั้งหมดตาม doc_type — ประมวลเรียงตามมาตรา, ประเภทอื่นเรียงใหม่→เก่า"""
     doc_type = request.args.get('doc_type', '').strip()
     page = max(1, int(request.args.get('page', 1)))
     PER = 30
@@ -1643,9 +1643,14 @@ def all_docs():
 
     db = get_db()
     total = db.execute("SELECT COUNT(*) FROM meta WHERE doc_type=?", (doc_type,)).fetchone()[0]
+    if doc_type == 'law_section':
+        order_by = ("(CASE WHEN id LIKE 'section-%' THEN CAST(SUBSTR(id,9) AS INTEGER) "
+                    "ELSE 999999 END) ASC, id ASC")
+    else:
+        order_by = "COALESCE(date,'') DESC, year DESC, id DESC"
     page_rows = db.execute(
         "SELECT id, ref_number, title, year, date, doc_type, repealed, tax_type "
-        "FROM meta WHERE doc_type=? ORDER BY date ASC, id ASC LIMIT ? OFFSET ?",
+        f"FROM meta WHERE doc_type=? ORDER BY {order_by} LIMIT ? OFFSET ?",
         (doc_type, PER, (page - 1) * PER)
     ).fetchall()
 
