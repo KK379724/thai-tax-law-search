@@ -10,6 +10,16 @@ _THAI_DIGITS = str.maketrans('๐๑๒๓๔๕๖๗๘๙', '0123456789')
 def _th2ar(s: str) -> str:
     return s.translate(_THAI_DIGITS)
 
+# macOS/Finder/sync สร้างสำเนา "ชื่อ 2.json" ที่ id ซ้ำต้นฉบับ → ถ้า index เข้าไปจะทับเนื้อหาดี
+# ด้วยฉบับเก่า (silent revert). ข้ามถ้าต้นฉบับมีอยู่
+_DUP_COPY_RE = re.compile(r'^(.*) \d+\.json$')
+
+def _is_dup_copy(fp: str) -> bool:
+    m = _DUP_COPY_RE.match(os.path.basename(fp))
+    if not m:
+        return False
+    return os.path.exists(os.path.join(os.path.dirname(fp), m.group(1) + '.json'))
+
 # regex สำหรับ extract เลขฉบับจาก "ฉบับที่ N" (รองรับ Thai + Arabic + space variants)
 _ISSUE_RE = re.compile(r'ฉบับที่\s*([๐-๙\d]+)')
 
@@ -374,6 +384,7 @@ def build():
         fp
         for d in JSON_DIRS if os.path.isdir(d)
         for fp in glob.glob(os.path.join(d, '*.json'))
+        if not _is_dup_copy(fp)
     )
     total = len(files)
     print(f"พบ {total} ไฟล์ JSON")
@@ -617,6 +628,7 @@ def update_incremental() -> tuple[int, int]:
         fp
         for d in JSON_DIRS if os.path.isdir(d)
         for fp in glob.glob(os.path.join(d, '*.json'))
+        if not _is_dup_copy(fp)
     )
 
     added          = 0
