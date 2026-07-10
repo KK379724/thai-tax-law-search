@@ -955,6 +955,12 @@ def _update_law_index_row(d: dict):
         secs = ','.join(str(s) for s in (c.get('sections') or []) if s and str(s) != 'null')
         rel = (c.get('relationship') or '').strip()
         db.execute('INSERT OR IGNORE INTO law_links VALUES (?,?,?,?)', (d['id'], plaw, secs, rel))
+    # auto_related_sections → law_links (หน้ามาตราค้นเจอ) — parent_law แยก
+    _auto = d.get('auto_related_sections') or []
+    if _auto:
+        _asecs = ' '.join('มาตรา ' + (a.get('section') if isinstance(a, dict) else str(a)) for a in _auto)
+        db.execute('INSERT OR IGNORE INTO law_links VALUES (?,?,?,?)',
+                   (d['id'], 'ประมวลรัษฎากร(อ้างอิงอัตโนมัติ)', _asecs, 'อ้างอิง(อัตโนมัติ)'))
 
     db.execute('DELETE FROM doc_relations WHERE doc_id=?', (d['id'],))
     if doc_type not in ('ruling', 'court_judgment', 'supreme_court_judgment'):
@@ -973,6 +979,47 @@ def _update_law_index_row(d: dict):
     db.commit()
     db.close()
 
+
+_VALID_SEC = {'set': None}
+_SEC_REF_RE = re.compile(r'มาตรา\s*([0-9๐-๙]+(?:/[0-9๐-๙]+)?)\s*(ทวิ|ตรี|จัตวา|เบญจ|ฉ|สัตต|อัฏฐ|นว|ทศ|เอกาทศ|ทวาทศ|เตรส|จตุทศ|ปัณรส|โสฬส|สัตตรส)?')
+_TH_DIG = str.maketrans('๐๑๒๓๔๕๖๗๘๙', '0123456789')
+
+def _valid_sections() -> set:
+    if _VALID_SEC['set'] is None:
+        try:
+            db = get_db()
+            rows = db.execute("SELECT id FROM meta WHERE doc_type='law_section'").fetchall()
+            db.close()
+            s = set()
+            for r in rows:
+                stem = (r['id'] or '')[len('section-'):].translate(_TH_DIG).replace('_', '/').replace('-', ' ').strip()
+                if stem:
+                    s.add(stem)
+            _VALID_SEC['set'] = s
+        except Exception:
+            _VALID_SEC['set'] = set()
+    return _VALID_SEC['set']
+
+def _reextract_auto_sections(doc: dict):
+    """ดึง 'มาตรา N' ที่เป็นมาตราจริงจาก full_text → auto_related_sections (regex 100% 0 token)
+    เรียกตอนบันทึกแก้ไข: แก้ full_text แล้วการเชื่อมโยงอัปเดตเอง"""
+    c = doc.get('content') if isinstance(doc.get('content'), dict) else {}
+    ft = c.get('full_text') or c.get('text') or c.get('บทบัญญัติ') or doc.get('full_text') or ''
+    if not ft:
+        return
+    valid = _valid_sections()
+    found = []
+    seen = set()
+    for m in _SEC_REF_RE.finditer(ft):
+        num = m.group(1).translate(_TH_DIG)
+        key = f'{num} {m.group(2)}'.strip() if m.group(2) else num
+        if key in valid and key not in seen:
+            seen.add(key)
+            found.append(key)
+    as_of = doc.get('date', '') or ''
+    doc['auto_related_sections'] = [
+        {'section': k, 'section_id': 'section-' + k.replace('/', '_').replace(' ', '-'),
+         'source': 'full_text', 'as_of_date': as_of} for k in found]
 
 def _reembed_law_doc(d: dict, fpath: str):
     """re-embed เอกสารเดียวเข้า law_th_v2 — point id เป็น uuid5 deterministic เขียนทับตัวเดิมเสมอ"""
@@ -1067,6 +1114,7 @@ def api_save(ruling_id):
 
     new_doc['manually_edited'] = True   # scraper/backfill ต้องข้ามไฟล์ที่มี flag นี้
     new_doc['edited_at'] = time.strftime('%Y-%m-%dT%H:%M:%S')
+    _reextract_auto_sections(new_doc)   # แก้ full_text → ดึงลิงก์มาตราใหม่อัตโนมัติ (0 token)
 
     # สำรองของเดิมก่อนทับเสมอ — กู้คืนได้จาก .edit_backups/ (นอก glob ของ index ทุกตัว)
     os.makedirs(_EDIT_BACKUP_DIR, exist_ok=True)

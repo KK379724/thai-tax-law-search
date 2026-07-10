@@ -494,6 +494,11 @@ def build():
                 secs = ','.join(str(s) for s in (c.get('sections') or []) if s and str(s) != 'null')
                 rel  = (c.get('relationship') or '').strip()
                 batch_links.append((d['id'], plaw, secs, rel))
+            # auto_related_sections (จาก enrich_links) → law_links ให้หน้ามาตราค้นเจอ (parent_law แยก กันชน dedup)
+            _auto = d.get('auto_related_sections') or []
+            if _auto:
+                _asecs = ' '.join('มาตรา ' + (a.get('section') if isinstance(a, dict) else str(a)) for a in _auto)
+                batch_links.append((d['id'], 'ประมวลรัษฎากร(อ้างอิงอัตโนมัติ)', _asecs, 'อ้างอิง(อัตโนมัติ)'))
 
             # ── doc_relations: parse full_text ──────────────────────────────
             if doc_type not in ('ruling', 'court_judgment', 'supreme_court_judgment'):
@@ -718,6 +723,11 @@ def update_incremental() -> tuple[int, int]:
                 secs = ','.join(str(s) for s in (c.get('sections') or []) if s and str(s) != 'null')
                 rel  = (c.get('relationship') or '').strip()
                 batch_links.append((d['id'], plaw, secs, rel))
+            # auto_related_sections (จาก enrich_links) → law_links ให้หน้ามาตราค้นเจอ (parent_law แยก กันชน dedup)
+            _auto = d.get('auto_related_sections') or []
+            if _auto:
+                _asecs = ' '.join('มาตรา ' + (a.get('section') if isinstance(a, dict) else str(a)) for a in _auto)
+                batch_links.append((d['id'], 'ประมวลรัษฎากร(อ้างอิงอัตโนมัติ)', _asecs, 'อ้างอิง(อัตโนมัติ)'))
 
             # doc_relations: parse full_text สำหรับ non-ruling docs
             if doc_type not in ('ruling', 'court_judgment', 'supreme_court_judgment'):
