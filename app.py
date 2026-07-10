@@ -1247,9 +1247,13 @@ def api_create():
         tax_type = [w.strip() for w in tax_type.split(',') if w.strip()]
     author = session.get('user') or ('kunanon' if EDIT_BACKEND == 'local' else 'editor')
 
+    _HLABEL = {9: 'อื่นๆ / บันทึกส่วนตัว'}
     doc = {
         'id': new_id,
         'type': dtype,
+        'schema_version': '1.0',
+        'hierarchy_level': 9,
+        'hierarchy_label': _HLABEL[9],
         'ref_number': '',
         'title': title,
         'tax_type': tax_type,
@@ -1259,6 +1263,7 @@ def api_create():
         'plain_summary': (body.get('plain_summary') or '').strip(),
         'why_issued': '',
         'authorizing_law_chain': [],
+        'related_sections': [],
         'content': {'full_text': full_text},
         'manually_edited': True,           # ผู้ใช้พิมพ์เอง — scraper/backfill ห้ามแตะ
         'author': author,

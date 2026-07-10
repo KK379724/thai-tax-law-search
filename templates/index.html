@@ -1368,6 +1368,18 @@
   <select id="anType" style="width:100%;padding:9px 10px;border:1px solid #cbd5e1;border-radius:7px;font-size:.85rem;margin-bottom:14px;background:#fff;color:#0f172a">
     <option value="personal_note">📝 บันทึกส่วนตัว / เคสที่เจอจากการทำงาน</option>
   </select>
+  <label style="display:block;font-size:.78rem;font-weight:700;color:#334155;margin-bottom:4px">หัวข้อ/หมวด</label>
+  <select id="anCategory" style="width:100%;padding:9px 10px;border:1px solid #cbd5e1;border-radius:7px;font-size:.85rem;margin-bottom:14px;background:#fff;color:#0f172a">
+    <option value="เคสที่เจอจากการทำงาน">เคสที่เจอจากการทำงาน</option>
+    <option value="เคสภาษีเงินได้บุคคลธรรมดา">เคสภาษีเงินได้บุคคลธรรมดา (PIT)</option>
+    <option value="เคสภาษีเงินได้นิติบุคคล">เคสภาษีเงินได้นิติบุคคล (CIT)</option>
+    <option value="เคสภาษีมูลค่าเพิ่ม">เคสภาษีมูลค่าเพิ่ม (VAT)</option>
+    <option value="เคสหัก ณ ที่จ่าย">เคสหัก ณ ที่จ่าย (WHT)</option>
+    <option value="เคสภาษีธุรกิจเฉพาะ/อากรแสตมป์">เคสภาษีธุรกิจเฉพาะ/อากรแสตมป์</option>
+    <option value="เคสมรดก/การให้">เคสมรดก/การให้</option>
+    <option value="ข้อสังเกต/ความรู้ทั่วไป">ข้อสังเกต/ความรู้ทั่วไป</option>
+    <option value="อื่นๆ">อื่นๆ</option>
+  </select>
   <label style="display:block;font-size:.78rem;font-weight:700;color:#334155;margin-bottom:4px">หัวข้อ <span style="color:#dc2626">*</span></label>
   <input id="anTitle" type="text" placeholder="เช่น เคส: ผู้เสียภาษีขาย RMF ก่อนอายุ 55"
          style="width:100%;padding:9px 10px;border:1px solid #cbd5e1;border-radius:7px;font-size:.85rem;margin-bottom:14px;background:#fff;color:#0f172a">
@@ -2847,6 +2859,7 @@ ${chatBlocksHtml}
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: document.getElementById('anType').value,
+          category: document.getElementById('anCategory').value,
           title, full_text, tax_type,
           summary: document.getElementById('anSummary').value.trim(),
         }),
