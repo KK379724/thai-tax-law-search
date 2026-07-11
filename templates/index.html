@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ค้นหาข้อหารือภาษีอากร</title>
+<meta name="theme-color" content="#1e3a5f">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/pwa/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="กฎหมายภาษี">
 <style>
   :root {
     --blue-900: #0F2A5C;
@@ -996,6 +1003,21 @@
   /* ── Bottom-sheet ตัวกรอง (desktop = ปกติในแถบข้าง, ซ่อน FAB/overlay/handle) ── */
   .filter-fab, .filter-overlay, .filter-sheet-handle { display: none; }
 
+  /* ── Autocomplete แนะนำคำค้น ── */
+  .search-input-wrap { position: relative; }
+  .suggest-box {
+    display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 40;
+    background: var(--white); border: 1px solid var(--gray-200); border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.12); overflow: hidden; max-height: 320px; overflow-y: auto;
+  }
+  .suggest-box.open { display: block; }
+  .suggest-item {
+    padding: 9px 12px; font-size: 13px; cursor: pointer; display: flex; gap: 8px; align-items: center;
+    border-bottom: 1px solid var(--gray-50); line-height: 1.4;
+  }
+  .suggest-item:hover, .suggest-item.active { background: var(--blue-50); }
+  .suggest-item .s-tag { font-size: 10px; color: var(--blue-700); background: var(--blue-50); border: 1px solid var(--blue-100); border-radius: 4px; padding: 1px 6px; white-space: nowrap; flex-shrink: 0; }
+
   /* ─────────────── MOBILE / RESPONSIVE (จอ ≤ 820px) ─────────────── */
   @media (max-width: 820px) {
     .topbar { flex-wrap: wrap; height: auto; min-height: 48px; padding: 8px 12px; gap: 8px; }
@@ -1129,6 +1151,7 @@
           <input type="text" id="searchInput"
                  placeholder="พิมพ์คำถาม เช่น ค่าจ้างเหมา หัก ณ ที่จ่าย"
                  autocomplete="off">
+          <div id="suggestBox" class="suggest-box"></div>
         </div>
 
         <!-- AI Key Box -->
@@ -1253,6 +1276,7 @@
       <div style="display:flex; gap:8px; flex-wrap:wrap">
         <button class="chip" style="flex:1; min-width:130px; text-align:center; font-weight:600" onclick="loadWhatsNew()">🆕 กฎหมายมาใหม่</button>
         <button class="chip" id="btnOcrQueue" style="flex:1; min-width:130px; text-align:center; font-weight:600; display:none" onclick="loadOcrQueue()">📋 งานค้าง (รอตรวจ OCR)</button>
+        <button class="chip" id="btnLinkReview" style="flex:1; min-width:130px; text-align:center; font-weight:600; display:none" onclick="loadLinkReview()">🔗 ตรวจลิงก์ผิด</button>
         <button class="chip" id="btnAddNote" style="flex:1; min-width:130px; text-align:center; font-weight:600; display:none; color:#047857; border-color:#6ee7b7" onclick="openAddNote()">➕ เพิ่มบันทึก/เคส</button>
       </div>
     </div>
@@ -2884,12 +2908,29 @@ ${chatBlocksHtml}
     } catch (e) { alert('โหลดไม่ได้: ' + e.message); }
   }
 
+  async function loadLinkReview() {
+    document.getElementById('resultsList').innerHTML = '<div class="loading-state">⏳ กำลังโหลดคิวลิงก์...</div>';
+    try {
+      const d = await (await fetch('/api/link_review')).json();
+      if (d.error) { alert(d.error); return; }
+      const rows = (d.queue || []).map(q => ({
+        id: q.id, ref_number: q.bad_ref ? ('อ้าง มาตรา ' + q.bad_ref) : '', title: q.title,
+        year: '', doc_type: q.doc_type, repealed: 0, tax_type: [],
+        snippet: `⚠ อ้าง "มาตรา ${q.bad_ref}" ที่ไม่มีในประมวล — น่าจะ OCR/พิมพ์ผิด${q.date ? ' · ' + q.date : ''}`,
+      }));
+      _renderSimpleList(rows, `<div style="padding:10px 4px 4px; font-weight:700; font-size:15px">🔗 ลิงก์มาตราน่าสงสัย — ควรตรวจ/แก้ (${rows.length}${d.count ? ' จาก ' + d.count : ''})</div>
+        <div style="padding:0 4px 12px; font-size:12px; color:var(--gray-500)">เอกสารเหล่านี้อ้างถึงมาตราที่ไม่มีอยู่จริงในประมวล (เลข ≤129) → คลิก → ✏️ แก้ไข เลขมาตราให้ถูก แล้วลิงก์จะอัปเดตเอง</div>`);
+    } catch (e) { alert('โหลดไม่ได้: ' + e.message); }
+  }
+
   // โชว์ปุ่มคิว OCR เฉพาะคนแก้ได้ (เจ้าของ local / editor login บนเว็บ)
   fetch('/api/me').then(r => r.json()).then(me => {
     window.__canEdit = (me.edit_backend === 'local' || !!me.user);
     if (window.__canEdit) {
       const b = document.getElementById('btnOcrQueue');
       if (b) b.style.display = '';
+      const lr = document.getElementById('btnLinkReview');
+      if (lr) lr.style.display = '';
       const a = document.getElementById('btnAddNote');
       if (a) a.style.display = '';
     }
@@ -2904,6 +2945,45 @@ ${chatBlocksHtml}
   function toggleFilterSheet(open) {
     document.body.classList.toggle('sheet-open', !!open);
   }
+
+  // PWA — ลงทะเบียน service worker (เปิดเหมือนแอป + ออฟไลน์ได้บางส่วน)
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+  }
+
+  // Autocomplete ช่องค้นหา (แนะนำมาตรา/ชื่อเอกสาร)
+  (function () {
+    const inp = document.getElementById('searchInput');
+    const box = document.getElementById('suggestBox');
+    if (!inp || !box) return;
+    let t = null;
+    const TL = { law_section: 'มาตรา', act: 'พรบ.', royal_decree: 'พรฎ.', ministerial_regulation: 'กฎกระทรวง',
+                 ruling: 'ข้อหารือ', court_judgment: 'ฎีกา', supreme_court_judgment: 'ฎีกา',
+                 director_general_notification: 'ประกาศอธิบดี', committee_ruling: 'คำวินิจฉัย' };
+    inp.addEventListener('input', () => {
+      const q = inp.value.trim();
+      clearTimeout(t);
+      if (q.length < 2) { box.classList.remove('open'); box.innerHTML = ''; return; }
+      t = setTimeout(async () => {
+        try {
+          const d = await (await fetch('/api/suggest?q=' + encodeURIComponent(q))).json();
+          const items = d.suggestions || [];
+          if (!items.length) { box.classList.remove('open'); return; }
+          box.innerHTML = items.map(s =>
+            `<div class="suggest-item" data-id="${escHtml(s.id)}" data-label="${escHtml(s.label)}" data-type="${s.doc_type}">
+              <span class="s-tag">${TL[s.doc_type] || 'เอกสาร'}</span><span>${escHtml(s.label)}</span></div>`).join('');
+          box.classList.add('open');
+          box.querySelectorAll('.suggest-item').forEach(el => el.onclick = () => {
+            box.classList.remove('open');
+            if (el.dataset.type === 'law_section' || el.dataset.type === 'act') openDetail(el.dataset.id);
+            else { inp.value = el.dataset.label; doSearch(1); }
+          });
+        } catch (e) { box.classList.remove('open'); }
+      }, 180);
+    });
+    inp.addEventListener('keydown', e => { if (e.key === 'Escape') box.classList.remove('open'); });
+    document.addEventListener('click', e => { if (!box.contains(e.target) && e.target !== inp) box.classList.remove('open'); });
+  })();
 
   // ป้าย "⏳ รอตรวจ OCR" — โหลดชุด id ที่อยู่ในคิว OCR (full_text อาจเพี้ยน ยังไม่ผ่านการตรวจ)
   window.__ocrIds = new Set();
@@ -3389,8 +3469,20 @@ ${chatBlocksHtml}
         เนื้อหา (full_text) อาจมีตัวอักษร/ตัวเลขเพี้ยนจากการสแกน — ควรเทียบกับต้นฉบับก่อนใช้อ้างอิง${window.__canEdit ? ' &nbsp;กด <b>✏️ แก้ไข</b> เพื่อพิมพ์แก้ให้ถูก แล้วเอกสารจะหลุดจากคิว' : ''}</div>`;
     }
 
+    // ป้ายเตือน "เวลา" — เอกสารตีความกฎหมาย ณ วันที่ของมัน มาตราอาจแก้/ยกเลิกภายหลัง
+    let timeWarn = '';
+    const _interp = ['ruling','court_judgment','supreme_court_judgment','committee_ruling'];
+    if (_interp.includes(docType) && d.date) {
+      const _yr = (parseInt(String(d.date).slice(0,4)) || 0) + 543;
+      if (_yr > 543) timeWarn = `<div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:#1E40AF;line-height:1.6">
+        <strong>&#x23F3; ตีความกฎหมาย ณ ปี พ.ศ. ${_yr}</strong> — มาตรา/กฎหมายที่เอกสารนี้อ้างถึงอาจถูกแก้ไขหรือยกเลิกภายหลัง โปรดตรวจฉบับปัจจุบันก่อนนำไปใช้</div>`;
+    } else if (docType === 'law_section') {
+      timeWarn = `<div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:#1E40AF;line-height:1.6">
+        <strong>&#x1F4CC; หมายเหตุเรื่องเวลา</strong> — ข้อหารือ/คำพิพากษาที่เชื่อมโยงกับมาตรานี้ อ้างอิง ณ วันที่ของเอกสารนั้น หากมาตราถูกแก้ไขภายหลัง การตีความเก่าอาจใช้กับฉบับปัจจุบันไม่ได้</div>`;
+    }
+
     document.getElementById('detailBody').innerHTML = `
-      ${ocrWarn}${noteWarn}
+      ${ocrWarn}${timeWarn}${noteWarn}
       <h2 class="detail-title">${escHtml(d.title||'')}</h2>
       <div class="detail-meta">
         <div class="detail-meta-item"><label>เลขที่</label><span>${escHtml(d.ref_number||'—')}</span></div>
