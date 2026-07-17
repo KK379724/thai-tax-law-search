@@ -181,10 +181,24 @@ def normalize_tax_type(raw: list | None) -> str:
     return ','.join(seen)
 
 
+_THAI_TO_ARABIC = str.maketrans('๐๑๒๓๔๕๖๗๘๙', '0123456789')
+
+
+def to_arabic(s: str) -> str:
+    """'๓๖๙' → '369' — ใช้ทั้งฝั่งดัชนีและฝั่ง query ให้ค้นเลขไทย/อารบิกเจอเหมือนกัน"""
+    return s.translate(_THAI_TO_ARABIC) if s else s
+
+
 def tokenize_thai(text: str) -> str:
-    """แปลงข้อความไทยเป็น token โดยใช้ pythainlp หรือ fallback เป็น character"""
+    """แปลงข้อความไทยเป็น token โดยใช้ pythainlp หรือ fallback เป็น character
+
+    เลขไทยถูก normalize เป็นเลขอารบิกก่อน tokenize — FTS ใช้จับคู่เท่านั้น
+    (ข้อความที่แสดงผลดึงจากตาราง meta) จึงไม่กระทบหน้าจอ
+    ดู tokenize_query() ใน app.py ที่ต้อง normalize แบบเดียวกัน
+    """
     if not text:
         return ''
+    text = to_arabic(text)
     if HAS_THAI:
         tokens = word_tokenize(text, engine='newmm', keep_whitespace=False)
         return ' '.join(t for t in tokens if t and t.strip())

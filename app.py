@@ -299,8 +299,17 @@ def get_db():
     return db
 
 
+_THAI_TO_ARABIC = str.maketrans('๐๑๒๓๔๕๖๗๘๙', '0123456789')
+
+
 def tokenize_query(q: str) -> list[str]:
-    """แยก query ออกเป็น list ของ token"""
+    """แยก query ออกเป็น list ของ token
+
+    เลขไทย → อารบิก ให้ตรงกับดัชนี (build_index.tokenize_thai normalize แบบเดียวกัน)
+    ผู้ใช้พิมพ์ 'ท.ป. 369' หรือ 'ท.ป. ๓๖๙' จึงเจอเอกสารเดียวกัน
+    ทุกเส้นทางค้นหา (search/suggest/ai_search) ผ่านฟังก์ชันนี้
+    """
+    q = (q or '').translate(_THAI_TO_ARABIC)
     if HAS_THAI:
         tokens = word_tokenize(q.strip(), engine='newmm', keep_whitespace=False)
         return [t.strip() for t in tokens if t and t.strip() and len(t.strip()) >= 1]
