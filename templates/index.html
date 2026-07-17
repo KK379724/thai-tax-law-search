@@ -3092,6 +3092,59 @@ ${chatBlocksHtml}
   let _editRawMode = false;
   let _editDoc = null;
 
+  // ── Editor full_text แบบ Word-lite (toolbar + preview + โหมด Markdown) ──────
+  function _fullTextEditor(val, isMd) {
+    const v = String(val == null ? '' : val);
+    const rows = Math.min(24, Math.max(8, Math.ceil(v.length / 90)));
+    const ta = `<textarea data-editkey="content.full_text" id="ftEditTA" oninput="_mdPreview()" rows="${rows}" style="width:100%;background:#fff;color:#0F172A;border:1px solid #CBD5E1;border-top:none;border-radius:0 0 6px 6px;padding:10px;font:inherit;font-size:.85rem;line-height:1.8;resize:vertical">${escHtml(v)}</textarea>`;
+    const btn = (t, fn, title) => `<button type="button" onclick="${fn}" title="${title}" style="background:#fff;border:1px solid #CBD5E1;border-radius:5px;padding:4px 9px;font-size:.8rem;cursor:pointer;font-weight:600;color:#334155">${t}</button>`;
+    const toolbar = `<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;background:#F8FAFC;border:1px solid #CBD5E1;border-radius:6px 6px 0 0;padding:6px 8px">
+      ${btn('<b>ตัวหนา</b>', "_mdWrap('**','**')", 'ทำตัวหนา')}
+      ${btn('หัวข้อ', "_mdPrefix('## ')", 'หัวข้อ')}
+      ${btn('• รายการ', "_mdPrefix('- ')", 'รายการแบบจุด')}
+      ${btn('⊞ แทรกตาราง', "_mdTable()", 'แทรกโครงตาราง')}
+      <span style="flex:1"></span>
+      <label style="display:flex;align-items:center;gap:5px;font-size:.75rem;color:#334155;cursor:pointer;font-weight:600">
+        <input type="checkbox" id="mdModeCb" ${isMd ? 'checked' : ''} onchange="_mdPreview()"> แสดงผลแบบ Markdown (ตาราง/ตัวหนา)
+      </label></div>`;
+    const preview = `<div id="mdPreviewWrap" style="display:${isMd ? 'block' : 'none'};margin-top:8px;border:1px dashed #CBD5E1;border-radius:6px;padding:10px;background:#FCFCFD">
+      <div style="font-size:.7rem;color:#94A3B8;margin-bottom:4px">👁 ตัวอย่างที่จะแสดงในหน้ารายละเอียด</div>
+      <div id="mdPreviewBody" class="md-body" style="line-height:1.8;overflow-x:auto"></div></div>`;
+    return `<label style="display:block;margin-bottom:10px;font-size:.75rem;color:#334155;font-weight:600">📄 เนื้อหาเต็ม (full_text) — พิมพ์แก้ให้ตรงต้นฉบับ (งานหลัก)
+      <div style="margin-top:3px;font-weight:400">${toolbar}${ta}${preview}</div></label>`;
+  }
+  function _ftTA() { return document.getElementById('ftEditTA'); }
+  function _mdWrap(before, after) {
+    const ta = _ftTA(); if (!ta) return;
+    const s = ta.selectionStart, e = ta.selectionEnd, sel = ta.value.slice(s, e) || 'ข้อความ';
+    ta.value = ta.value.slice(0, s) + before + sel + after + ta.value.slice(e);
+    ta.focus(); ta.selectionStart = s + before.length; ta.selectionEnd = s + before.length + sel.length;
+    _mdPreview();
+  }
+  function _mdPrefix(pfx) {
+    const ta = _ftTA(); if (!ta) return;
+    const s = ta.selectionStart, ls = ta.value.lastIndexOf('\n', s - 1) + 1;
+    ta.value = ta.value.slice(0, ls) + pfx + ta.value.slice(ls);
+    ta.focus(); ta.selectionStart = ta.selectionEnd = s + pfx.length;
+    _mdPreview();
+  }
+  function _mdTable() {
+    const ta = _ftTA(); if (!ta) return;
+    const s = ta.selectionStart;
+    const tpl = '\n| หัวข้อ1 | หัวข้อ2 |\n|--------|--------|\n| ก | ข |\n| ค | ง |\n';
+    ta.value = ta.value.slice(0, s) + tpl + ta.value.slice(s);
+    ta.focus(); ta.selectionStart = ta.selectionEnd = s + tpl.length;
+    const cb = document.getElementById('mdModeCb'); if (cb) cb.checked = true;   // แทรกตาราง = เปิดโหมด md ให้เลย
+    _mdPreview();
+  }
+  function _mdPreview() {
+    const cb = document.getElementById('mdModeCb'), ta = _ftTA();
+    const wrap = document.getElementById('mdPreviewWrap'), body = document.getElementById('mdPreviewBody');
+    if (!cb || !ta || !wrap) return;
+    if (cb.checked) { wrap.style.display = 'block'; body.innerHTML = renderMarkdown(ta.value); }
+    else wrap.style.display = 'none';
+  }
+
   function _editFieldRow(key, label, val, forceShort) {
     const v = String(val == null ? '' : val);
     const long = !forceShort && (v.length > 100 || v.includes('\n'));
@@ -3146,7 +3199,8 @@ ${chatBlocksHtml}
     // full_text = งานหลัก (พิมพ์แก้ให้ตรงต้นฉบับ) → ขึ้นบนสุด + ใหญ่สุด
     const _ftVal = (d.content && typeof d.content === 'object' && !Array.isArray(d.content))
       ? (d.content.full_text || '') : (d.full_text || '');
-    let rows = _editFieldRow('content.full_text', '📄 เนื้อหาเต็ม (full_text) — พิมพ์แก้ให้ตรงต้นฉบับ (งานหลัก)', _ftVal)
+    const _ftMd = !!(d.content && d.content.full_text_format === 'markdown');
+    let rows = _fullTextEditor(_ftVal, _ftMd)
              + _editFieldRow('summary', 'summary (สรุปทางการ — กด 🤖 ให้ AI ร่างได้)', d.summary || '')
              + _editFieldRow('plain_summary', 'plain_summary (สรุปภาษาชาวบ้าน)', d.plain_summary || '')
              + _editFieldRow('keywords', 'keywords (คั่นด้วย ,)', (d.keywords || []).join(', '), true);
@@ -3238,6 +3292,9 @@ ${chatBlocksHtml}
     } else {
       const fields = {};
       document.querySelectorAll('[data-editkey]').forEach(el => { fields[el.dataset.editkey] = el.value; });
+      // โหมด Markdown ของ full_text (checkbox ไม่มี data-editkey — ใส่ค่าตรงนี้)
+      const mdCb = document.getElementById('mdModeCb');
+      if (mdCb) fields['content.full_text_format'] = mdCb.checked ? 'markdown' : '';
       body = { fields };
     }
     btn.disabled = true;
@@ -3496,7 +3553,9 @@ ${chatBlocksHtml}
       ${summaryText ? `<div class="detail-summary-box"><strong>สรุปสาระสำคัญ</strong><p>${escHtml(summaryText)}</p></div>` : ''}
       ${d.why_issued ? `<div class="detail-summary-box" style="background:#FFF7ED;border-color:#F59E0B"><strong>เหตุผลที่ออก</strong><p>${escHtml(d.why_issued)}</p></div>` : ''}
       ${section('อาศัยอำนาจตามกฎหมาย', c['อาศัยอำนาจตาม'])}
-      ${section('เนื้อหา', bodyText)}
+      ${c['full_text_format'] === 'markdown' && bodyText
+        ? `<div class="detail-section"><h4>เนื้อหา</h4><div class="md-body" style="line-height:1.8;overflow-x:auto">${renderMarkdown(bodyText)}</div></div>`
+        : section('เนื้อหา', bodyText)}
       ${section('คำอธิบาย', c['explanation'])}
       ${section('ข้อเท็จจริง / ข้อหารือ', c['ข้อเท็จจริง'] || d.facts)}
       ${section('ประเด็น', c['ประเด็นที่หารือ'] || c['ประเด็น'])}
@@ -3579,6 +3638,47 @@ ${chatBlocksHtml}
     }
     if (!text.trim()) return '';
     return `<div class="detail-section"><h4>${label}</h4><p>${escHtml(text)}</p></div>`;
+  }
+
+  // ── Markdown renderer (vanilla, self-contained) ──────────────────────────
+  // ใช้เฉพาะ full_text ที่ full_text_format=markdown — escape ก่อนเสมอ (กัน XSS)
+  function _mdInline(s) {
+    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+    s = s.replace(/`([^`]+)`/g, '<code style="background:#F1F5F9;padding:1px 4px;border-radius:3px">$1</code>');
+    return s;
+  }
+  function renderMarkdown(raw) {
+    if (!raw) return '';
+    const lines = escHtml(raw).split('\n');
+    const isSep = l => /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(l);
+    const cells = l => l.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').map(c => c.trim());
+    let html = '', i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      if (line.includes('|') && i + 1 < lines.length && isSep(lines[i + 1])) {
+        let t = '<table style="border-collapse:collapse;margin:8px 0;font-size:.85rem;max-width:100%"><thead><tr>';
+        cells(line).forEach(c => t += `<th style="border:1px solid #CBD5E1;padding:5px 9px;background:#F1F5F9;text-align:left">${_mdInline(c)}</th>`);
+        t += '</tr></thead><tbody>';
+        i += 2;
+        while (i < lines.length && lines[i].includes('|') && lines[i].trim()) {
+          t += '<tr>'; cells(lines[i]).forEach(c => t += `<td style="border:1px solid #CBD5E1;padding:5px 9px">${_mdInline(c)}</td>`); t += '</tr>'; i++;
+        }
+        html += t + '</tbody></table>'; continue;
+      }
+      const h = line.match(/^(#{1,4})\s+(.*)$/);
+      if (h) { const n = h[1].length + 2; html += `<h${n} style="margin:10px 0 4px;font-weight:700">${_mdInline(h[2])}</h${n}>`; i++; continue; }
+      if (/^\s*[-*]\s+/.test(line)) {
+        let items = [];
+        while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) { items.push(lines[i].replace(/^\s*[-*]\s+/, '')); i++; }
+        html += '<ul style="margin:6px 0;padding-left:22px">' + items.map(x => `<li>${_mdInline(x)}</li>`).join('') + '</ul>'; continue;
+      }
+      if (!line.trim()) { i++; continue; }
+      let para = [];
+      while (i < lines.length && lines[i].trim() && !lines[i].includes('|') && !/^(#{1,4}\s|\s*[-*]\s)/.test(lines[i])) { para.push(lines[i]); i++; }
+      if (para.length) html += `<p style="margin:6px 0;line-height:1.8">${para.map(_mdInline).join('<br>')}</p>`;
+    }
+    return html;
   }
 
   function closeDetail() {

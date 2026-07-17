@@ -189,6 +189,18 @@ def to_arabic(s: str) -> str:
     return s.translate(_THAI_TO_ARABIC) if s else s
 
 
+def strip_md(s: str) -> str:
+    """ลบ syntax ของ Markdown ก่อน index (เฉพาะ doc ที่ full_text_format=markdown)
+    เก็บคำไว้ ตัดแต่สัญลักษณ์ | # * ` เพื่อให้ FTS ค้นคำ (เช่นคำที่ทำตัวหนา) เจอ
+    """
+    if not s:
+        return s
+    s = re.sub(r'^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$', ' ', s, flags=re.M)
+    s = s.replace('|', ' ')
+    s = re.sub(r'[*`#]', '', s)
+    return s
+
+
 def tokenize_thai(text: str) -> str:
     """แปลงข้อความไทยเป็น token โดยใช้ pythainlp หรือ fallback เป็น character
 
@@ -467,6 +479,9 @@ def build():
                 why_issued, chain_txt, key_principle, why_important,
                 full_text_raw,
             ]))
+            # doc ที่พิมพ์ full_text เป็น Markdown → ตัด syntax ก่อน tokenize (ค้นคำเจอ)
+            if content.get('full_text_format') == 'markdown':
+                full_content = strip_md(full_content)
 
             title_tok   = tokenize_thai(title)
             content_tok = tokenize_thai(full_content)
@@ -699,6 +714,9 @@ def update_incremental() -> tuple[int, int]:
                 why_issued, chain_txt, key_principle, why_important,
                 full_text_raw,
             ]))
+            # doc ที่พิมพ์ full_text เป็น Markdown → ตัด syntax ก่อน tokenize (ค้นคำเจอ)
+            if content.get('full_text_format') == 'markdown':
+                full_content = strip_md(full_content)
 
             title_tok   = tokenize_thai(title)
             content_tok = tokenize_thai(full_content)
