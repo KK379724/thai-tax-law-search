@@ -21,6 +21,16 @@ def _is_dup_copy(fp: str) -> bool:
     original = os.path.join(os.path.dirname(fp), m.group(1) + '.json')
     return os.path.exists(original)
 
+
+def _url_str(v) -> str:
+    """source_url อาจเป็น str หรือ dict {page, pdf} (เช่น อนุสัญญาภาษีซ้อน).
+    คืน URL หน้าเว็บ(page) เป็นหลัก ไม่งั้น pdf ไม่งั้นค่าแรก — กัน sqlite bind dict พัง
+    (บทเรียน 2026-07-22: DTA 61 ไฟล์ทำ build_index ล้มทั้งชุด → Render build fail
+    → เว็บค้างดัชนีเก่า ไม่ได้เอกสารใหม่)."""
+    if isinstance(v, dict):
+        return str(v.get('page') or v.get('pdf') or next(iter(v.values()), '') or '')
+    return str(v) if v else ''
+
 # regex สำหรับ extract เลขฉบับจาก "ฉบับที่ N" (รองรับ Thai + Arabic + space variants)
 _ISSUE_RE = re.compile(r'ฉบับที่\s*([๐-๙\d]+)')
 
@@ -502,7 +512,7 @@ def build():
                 year,
                 normalize_tax_type(d.get('tax_type') or []),
                 d.get('date', ''),
-                d.get('source_url', ''),
+                _url_str(d.get('source_url', '')),
                 summary[:600],
                 facts[:800],
                 ruling_txt[:10000] if doc_type == 'law_section' else ruling_txt[:800],
@@ -734,7 +744,7 @@ def update_incremental() -> tuple[int, int]:
                 d['id'], ref_number, title, year,
                 normalize_tax_type(d.get('tax_type') or []),
                 d.get('date', ''),
-                d.get('source_url', ''),
+                _url_str(d.get('source_url', '')),
                 summary[:600],
                 facts[:800],
                 ruling_txt[:10000] if doc_type == 'law_section' else ruling_txt[:800],

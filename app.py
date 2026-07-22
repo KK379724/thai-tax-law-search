@@ -959,7 +959,7 @@ def _update_law_index_row(d: dict):
            summary=?, facts=?, ruling_text=?, doc_type=?, repealed=?, plain_summary=?,
            chapter=?, part=? WHERE id=?''',
         (ref_number, title, year, _bi.normalize_tax_type(d.get('tax_type') or []),
-         d.get('date', ''), d.get('source_url', ''), summary[:600], facts[:800],
+         d.get('date', ''), _bi._url_str(d.get('source_url', '')), summary[:600], facts[:800],
          ruling_txt[:10000] if doc_type == 'law_section' else ruling_txt[:800],
          doc_type, 1 if d.get('repealed') else 0, (d.get('plain_summary') or '')[:400],
          (d.get('chapter') or '') or None, (d.get('part') or '') or None, d['id'])
